@@ -1,0 +1,29 @@
+Read CLAUDE.md fully — it is the complete specification for this project.
+
+Build the ClinicOS multi-tenant Clinic Management System exactly as specified.
+Start with Phase 1 from section 8 (Development Workflow):
+
+1. Scaffold the monorepo (client with React + Vite + TypeScript + Tailwind +
+   Framer Motion; server with Express + TypeScript), including all npm scripts.
+2. Set up the SQL Server connection, migration runner, and write the initial
+   migrations for ALL tables in section 3 (core + additional tables).
+3. Write the seed script: one SUPER_ADMIN, one approved demo clinic with one
+   user per role (clinic admin, doctor, receptionist, nurse), 2 doctors with
+   schedules, ~10 sample patients, and sample appointments for today.
+4. Implement authentication (JWT access + refresh) and the full RBAC +
+   tenant-scoping middleware described in section 2, with tests proving:
+   receptionist cannot read consultation notes, super admin cannot read any
+   clinical data, and cross-clinic access returns 404.
+5. Build the login page and the four role-based layout shells with animated
+   sidebar navigation.
+
+After Phase 1 works end-to-end (I can log in as each role and see the correct
+empty shell), stop and show me how to run it. Then we will proceed phase by
+phase through section 8. Do not skip the tenant-isolation tests at any phase.
+
+My SQL Server runs in Docker Desktop on localhost:1433, username "sa",
+password "testpass". The database "clinicos" does not exist yet —
+make the migration runner create it if missing. Use
+trustServerCertificate: true in the mssql connection config since it's a
+local Docker instance with a self-signed certificate. Put all connection
+values in .env (with .env.example committed).
