@@ -68,3 +68,22 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   patient card, receipt) with monospace/thermal-friendly CSS — no server PDF dependency.
 - **Field filtering** is preserved end-to-end: receptionists never receive (or see a form for)
   Allergies/ChronicConditions/BloodGroup.
+
+## Phase 5 — Clinical
+
+- **BMI** is computed server-side from weight/height on every vitals write (never trusts a
+  client value), so the stored/displayed BMI can't disagree with the recorded measurements.
+  Abnormal-range highlighting is a client concern layered on the raw values.
+- **Consultation ↔ appointment** is 1:1 (unique AppointmentID). Writing a consultation upserts
+  on the appointment, so "Save" is idempotent and safe to call repeatedly during a visit.
+- **Prescriptions** are versioned: saving replaces the consultation's prescription by
+  soft-deleting the prior one and inserting a fresh set of items in a transaction.
+- **Prescription templates** are per-doctor (scoped by ClinicID + DoctorID), stored as a JSON
+  item array; a new migration (024) adds the `PrescriptionTemplates` table.
+- **Role filtering** on clinical reads: nurses get a summary-only consultation view (chief
+  complaint, diagnosis, follow-up — no examination notes / HPI / treatment plan); receptionists
+  are blocked entirely; the patient history endpoint is doctor/nurse/admin only.
+- **Doctor schedule/leave** ownership: a doctor may manage only their own; a clinic admin may
+  manage any — enforced in the controller by matching the doctor's UserID to the caller.
+- The client resolves "my" doctor profile by matching the authenticated user's full name to
+  DoctorName (they are kept in sync on staff create/update), avoiding an extra /doctors/me call.

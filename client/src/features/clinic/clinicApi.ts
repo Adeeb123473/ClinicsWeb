@@ -107,6 +107,7 @@ export const clinicApi = {
 
   getQueue: (params: { date?: string; doctorId?: string; status?: string; patientId?: string }) =>
     apiGet<Appointment[]>("/appointments", params),
+  getAppointment: (id: string) => apiGet<Appointment>(`/appointments/${id}`),
   book: (body: Record<string, unknown>) => apiPost<Appointment>("/appointments", body),
   setStatus: (id: string, status: string) => apiPatch<Appointment>(`/appointments/${id}/status`, { status }),
   reschedule: (id: string, date: string, time: string) => apiPatch<Appointment>(`/appointments/${id}/reschedule`, { date, time }),

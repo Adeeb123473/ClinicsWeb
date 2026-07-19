@@ -30,6 +30,8 @@ import { ClinicAuditLogPage } from "./pages/app/AuditLogPage";
 import { SchedulePage } from "./pages/app/SchedulePage";
 import { BillingPage } from "./pages/app/BillingPage";
 import { VitalsPage } from "./pages/app/VitalsPage";
+import { ConsultationPage } from "./pages/app/ConsultationPage";
+import { PatientDetailPage } from "./pages/app/PatientDetailPage";
 
 const CLINIC_ROLES = ["CLINIC_ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE"] as const;
 
@@ -135,6 +137,8 @@ function App() {
           <Route index element={<ClinicHomePage />} />
           <Route path="staff" element={<StaffPage />} />
           <Route path="patients" element={<PatientsPage />} />
+          <Route path="patients/:id" element={<PatientDetailPage />} />
+          <Route path="consultation/:appointmentId" element={<ConsultationPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<ClinicSettingsPage />} />

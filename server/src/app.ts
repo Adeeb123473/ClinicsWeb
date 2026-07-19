@@ -17,6 +17,10 @@ import reportsRoutes from "./modules/reports/reports.routes.js";
 import doctorsRoutes from "./modules/doctors/doctors.routes.js";
 import appointmentsRoutes from "./modules/appointments/appointments.routes.js";
 import billingRoutes from "./modules/billing/billing.routes.js";
+import vitalsRoutes from "./modules/vitals/vitals.routes.js";
+import prescriptionsRoutes from "./modules/prescriptions/prescriptions.routes.js";
+import medicinesRoutes from "./modules/medicines/medicines.module.js";
+import historyRoutes from "./modules/history/history.routes.js";
 
 export function createApp() {
   const app = express();
@@ -50,11 +54,15 @@ export function createApp() {
   app.use("/api/v1/users", staffRoutes);
   app.use("/api/v1/clinic-settings", settingsRoutes);
   app.use("/api/v1/reports", reportsRoutes);
+  app.use("/api/v1/patients", historyRoutes);
   app.use("/api/v1/patients", patientsRoutes);
   app.use("/api/v1/doctors", doctorsRoutes);
   app.use("/api/v1/appointments", appointmentsRoutes);
   app.use("/api/v1/billing", billingRoutes);
+  app.use("/api/v1/vitals", vitalsRoutes);
   app.use("/api/v1/consultations", consultationsRoutes);
+  app.use("/api/v1/prescriptions", prescriptionsRoutes);
+  app.use("/api/v1/medicines", medicinesRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

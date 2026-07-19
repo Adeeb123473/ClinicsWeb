@@ -94,6 +94,44 @@ export function patientCardHtml(p: {
     <div class="row"><span>Category</span><span>${esc(p.category)}</span></div>`;
 }
 
+export function prescriptionHtml(rx: {
+  header: string;
+  footer: string;
+  doctorName: string;
+  patientName: string;
+  mrNo: string;
+  age: string;
+  gender: string;
+  date: string;
+  diagnosis: string | null;
+  items: { medicineName: string; dosage: string | null; frequency: string | null; durationDays: number | null; instructions: string | null }[];
+  followUpDate: string | null;
+}): string {
+  const rows = rx.items
+    .map(
+      (it, i) =>
+        `<tr>
+          <td style="vertical-align:top">${i + 1}.</td>
+          <td><strong>${esc(it.medicineName)}</strong>${it.dosage ? ` — ${esc(it.dosage)}` : ""}
+            <div class="muted">${[it.frequency, it.durationDays ? `${it.durationDays} days` : "", it.instructions].filter(Boolean).map(esc).join(" · ")}</div>
+          </td>
+        </tr>`,
+    )
+    .join("");
+  return `
+    <div class="center">${rx.header ? esc(rx.header).replace(/\n/g, "<br/>") : `<h2>${esc(rx.doctorName)}</h2>`}</div>
+    <hr class="divider" />
+    <div class="row"><span>${esc(rx.patientName)} (${esc(rx.mrNo)})</span><span>${esc(rx.date)}</span></div>
+    <div class="row"><span>${esc(rx.gender)} · ${esc(rx.age)}</span><span>${esc(rx.doctorName)}</span></div>
+    ${rx.diagnosis ? `<div class="row"><span>Diagnosis</span><strong>${esc(rx.diagnosis)}</strong></div>` : ""}
+    <hr class="divider" />
+    <div style="font-size:28px; font-weight:700; margin:4px 0">℞</div>
+    <table>${rows}</table>
+    ${rx.followUpDate ? `<hr class="divider" /><div class="row"><span>Follow-up</span><strong>${esc(rx.followUpDate)}</strong></div>` : ""}
+    <hr class="divider" />
+    <div class="muted">${rx.footer ? esc(rx.footer).replace(/\n/g, "<br/>") : ""}</div>`;
+}
+
 export function receiptHtml(inv: {
   clinicName: string;
   invoiceNo: string;
