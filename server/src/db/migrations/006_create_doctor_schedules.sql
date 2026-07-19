@@ -1,0 +1,17 @@
+CREATE TABLE DoctorSchedules (
+  ScheduleID UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  ClinicID UNIQUEIDENTIFIER NOT NULL,
+  DoctorID UNIQUEIDENTIFIER NOT NULL,
+  DayOfWeek TINYINT NOT NULL,
+  StartTime TIME NOT NULL,
+  EndTime TIME NOT NULL,
+  SlotDurationMinutes INT NOT NULL DEFAULT 15,
+  MaxTokens INT NULL,
+  IsActive BIT NOT NULL DEFAULT 1,
+  CONSTRAINT CK_DoctorSchedules_DayOfWeek CHECK (DayOfWeek BETWEEN 0 AND 6),
+  CONSTRAINT FK_DoctorSchedules_Clinic FOREIGN KEY (ClinicID) REFERENCES Clinics(ClinicID),
+  CONSTRAINT FK_DoctorSchedules_Doctor FOREIGN KEY (DoctorID) REFERENCES Doctors(DoctorID)
+);
+GO
+
+CREATE INDEX IX_DoctorSchedules_DoctorID_DayOfWeek ON DoctorSchedules(DoctorID, DayOfWeek);

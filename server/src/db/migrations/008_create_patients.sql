@@ -1,0 +1,46 @@
+CREATE TABLE Patients (
+  PatientID UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  ClinicID UNIQUEIDENTIFIER NOT NULL,
+  MRNo NVARCHAR(50) NOT NULL,
+  RegistrationDate DATE NOT NULL DEFAULT CAST(SYSUTCDATETIME() AS DATE),
+  RegistrationTime TIME NOT NULL DEFAULT CAST(SYSUTCDATETIME() AS TIME),
+  PatientName NVARCHAR(255) NOT NULL,
+  FatherHusbandName NVARCHAR(255) NULL,
+  Gender NVARCHAR(10) NOT NULL,
+  ActualDOB DATE NULL,
+  EstimatedDOB DATE NULL,
+  AgeAtRegistration INT NULL,
+  AgeUnit NVARCHAR(10) NULL,
+  MobileNo NVARCHAR(20) NULL,
+  CNIC NVARCHAR(20) NULL,
+  Address NVARCHAR(500) NULL,
+  Category NVARCHAR(30) NOT NULL DEFAULT 'General',
+  BloodGroup NVARCHAR(5) NULL,
+  Allergies NVARCHAR(1000) NULL,
+  ChronicConditions NVARCHAR(1000) NULL,
+  EmergencyContactName NVARCHAR(255) NULL,
+  EmergencyContactPhone NVARCHAR(20) NULL,
+  InsuranceProvider NVARCHAR(255) NULL,
+  InsurancePolicyNo NVARCHAR(100) NULL,
+  PhotoUrl NVARCHAR(500) NULL,
+  Remarks NVARCHAR(1000) NULL,
+  IsActive BIT NOT NULL DEFAULT 1,
+  IsDeleted BIT NOT NULL DEFAULT 0,
+  CreatedBy UNIQUEIDENTIFIER NULL,
+  CreatedDate DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  UpdatedBy UNIQUEIDENTIFIER NULL,
+  UpdatedDate DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT CK_Patients_Gender CHECK (Gender IN ('Male','Female','Other')),
+  CONSTRAINT CK_Patients_AgeUnit CHECK (AgeUnit IS NULL OR AgeUnit IN ('Years','Months','Days')),
+  CONSTRAINT CK_Patients_Category CHECK (Category IN ('General','Deserving','Staff','Insurance')),
+  CONSTRAINT CK_Patients_DOB_Required CHECK (ActualDOB IS NOT NULL OR EstimatedDOB IS NOT NULL),
+  CONSTRAINT UQ_Patients_Clinic_MRNo UNIQUE (ClinicID, MRNo),
+  CONSTRAINT FK_Patients_Clinic FOREIGN KEY (ClinicID) REFERENCES Clinics(ClinicID),
+  CONSTRAINT FK_Patients_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserID),
+  CONSTRAINT FK_Patients_UpdatedBy FOREIGN KEY (UpdatedBy) REFERENCES Users(UserID)
+);
+GO
+
+CREATE INDEX IX_Patients_Clinic_Name ON Patients(ClinicID, PatientName);
+CREATE INDEX IX_Patients_Clinic_Mobile ON Patients(ClinicID, MobileNo);
+CREATE INDEX IX_Patients_Clinic_CNIC ON Patients(ClinicID, CNIC);

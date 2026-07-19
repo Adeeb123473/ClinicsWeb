@@ -1,0 +1,24 @@
+CREATE TABLE Invoices (
+  InvoiceID UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  ClinicID UNIQUEIDENTIFIER NOT NULL,
+  PatientID UNIQUEIDENTIFIER NOT NULL,
+  AppointmentID UNIQUEIDENTIFIER NULL,
+  InvoiceNo NVARCHAR(50) NOT NULL,
+  Subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
+  Discount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  Tax DECIMAL(12,2) NOT NULL DEFAULT 0,
+  Total DECIMAL(12,2) NOT NULL DEFAULT 0,
+  PaidAmount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  Status NVARCHAR(20) NOT NULL DEFAULT 'Unpaid',
+  CreatedBy UNIQUEIDENTIFIER NULL,
+  CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT CK_Invoices_Status CHECK (Status IN ('Unpaid','PartiallyPaid','Paid','Void')),
+  CONSTRAINT UQ_Invoices_Clinic_InvoiceNo UNIQUE (ClinicID, InvoiceNo),
+  CONSTRAINT FK_Invoices_Clinic FOREIGN KEY (ClinicID) REFERENCES Clinics(ClinicID),
+  CONSTRAINT FK_Invoices_Patient FOREIGN KEY (PatientID) REFERENCES Patients(PatientID),
+  CONSTRAINT FK_Invoices_Appointment FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID),
+  CONSTRAINT FK_Invoices_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserID)
+);
+GO
+
+CREATE INDEX IX_Invoices_Clinic_Patient ON Invoices(ClinicID, PatientID);

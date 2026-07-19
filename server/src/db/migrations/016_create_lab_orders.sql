@@ -1,0 +1,19 @@
+CREATE TABLE LabOrders (
+  LabOrderID UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  ClinicID UNIQUEIDENTIFIER NOT NULL,
+  ConsultationID UNIQUEIDENTIFIER NULL,
+  PatientID UNIQUEIDENTIFIER NOT NULL,
+  LabTestID UNIQUEIDENTIFIER NOT NULL,
+  OrderedByUserID UNIQUEIDENTIFIER NOT NULL,
+  Status NVARCHAR(20) NOT NULL DEFAULT 'Ordered',
+  OrderedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT CK_LabOrders_Status CHECK (Status IN ('Ordered','Collected','Completed','Cancelled')),
+  CONSTRAINT FK_LabOrders_Clinic FOREIGN KEY (ClinicID) REFERENCES Clinics(ClinicID),
+  CONSTRAINT FK_LabOrders_Consultation FOREIGN KEY (ConsultationID) REFERENCES Consultations(ConsultationID),
+  CONSTRAINT FK_LabOrders_Patient FOREIGN KEY (PatientID) REFERENCES Patients(PatientID),
+  CONSTRAINT FK_LabOrders_LabTest FOREIGN KEY (LabTestID) REFERENCES LabTests(LabTestID),
+  CONSTRAINT FK_LabOrders_OrderedBy FOREIGN KEY (OrderedByUserID) REFERENCES Users(UserID)
+);
+GO
+
+CREATE INDEX IX_LabOrders_Clinic_Patient ON LabOrders(ClinicID, PatientID);

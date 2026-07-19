@@ -1,0 +1,41 @@
+Phase 1 is complete. Before continuing, verify it: run typecheck, lint,
+build, and the full test suite for client and server. Start the app,
+log in as each of the 5 seeded roles, and confirm auth, RBAC middleware,
+tenant scoping, and the 4 layout shells all work. Fix anything broken
+before proceeding.
+
+Then build ALL remaining phases from CLAUDE.md section 8 in order,
+autonomously, without stopping to ask me questions. Where the spec
+allows a choice, decide yourself, log it in DECISIONS.md, and continue:
+
+Phase 2 — Super Admin portal, public landing page, clinic registration
+and approval flow, subscription plans management.
+Phase 3 — Clinic Admin: dashboard with charts, staff management, clinic
+settings (hours, fees, MR No format, token settings, prescription
+header), reports, audit log viewer.
+Phase 4 — Reception: patient registration with CNIC/mobile duplicate
+detection, fast patient search, appointment booking from doctor slots,
+walk-in token issuing, live queue board with check-in, reschedule and
+cancel, billing with invoices and printable receipts, token and patient
+slips.
+Phase 5 — Clinical: nurse vitals entry with BMI auto-calc and abnormal
+highlighting, doctor "my day" queue, consultation screen, prescription
+builder with saved templates, printable prescription on clinic
+letterhead, patient history timeline, doctor schedule and leave
+management.
+Phase 6 — Billing completion, reports with Recharts and CSV export,
+in-app notifications, lab orders and results module.
+Phase 7 — Polish pass: Framer Motion animations per CLAUDE.md section 5,
+loading/empty/error states on every screen, print CSS, responsive
+checks, prefers-reduced-motion support.
+
+VERIFICATION LOOP after each phase (do not skip): typecheck + lint +
+build clean; API tests pass; write and run the RBAC/tenant-isolation
+tests for that phase's endpoints (receptionist blocked from clinical
+fields, super admin blocked from clinical data, cross-clinic access
+returns 404); exercise the new endpoints as each seeded role. Fix
+everything before moving on.
+
+WHEN FINISHED: run the full suite once more, update README.md with
+setup steps and all 5 default logins, finalize DECISIONS.md, and print
+a summary of what was built, test results, and how to start everything.
