@@ -1,7 +1,6 @@
 import { ApiError } from "../../utils/ApiError.js";
 import type { AccessTokenPayload } from "../../types/auth.js";
 import { findPatientByIdForClinic } from "../patients/patients.repository.js";
-import { notify } from "../notifications/notifications.service.js";
 import {
   listTests,
   insertTest,
@@ -63,8 +62,5 @@ export async function recordResult(clinicId: string, orderId: string, reviewedBy
   const order = await findOrder(clinicId, orderId);
   if (!order) throw ApiError.notFound("Lab order not found");
   await saveResult(orderId, resultText, reviewedBy);
-
-  // Notify the ordering doctor that the result is ready.
-  void notify(clinicId, order.OrderedByUserID, "LAB_RESULT_READY", "Lab result ready", `${order.TestName} for ${order.PatientName}`);
   return toOrderDto((await findOrder(clinicId, orderId)) as LabOrderRow);
 }

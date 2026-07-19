@@ -20,6 +20,17 @@ export function errorMessage(err: unknown, fallback = "Something went wrong"): s
   return fallback;
 }
 
+/** Extracts the machine-readable error code (e.g. "PLAN_FEATURE_NOT_INCLUDED") from an axios/ApiError. */
+export function errorCode(err: unknown): string | undefined {
+  if (err && typeof err === "object") {
+    const axiosErr = err as { response?: { data?: ApiEnvelope<unknown> } };
+    const code = axiosErr.response?.data?.error?.code;
+    if (code) return code;
+    if (err instanceof ApiError) return err.code;
+  }
+  return undefined;
+}
+
 export async function apiGet<T>(url: string, params?: Record<string, unknown>): Promise<T> {
   const res = await apiClient.get<ApiEnvelope<T>>(url, { params });
   return unwrap(res.data);

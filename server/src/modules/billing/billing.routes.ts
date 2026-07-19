@@ -3,6 +3,7 @@ import { authenticate } from "../../middleware/authenticate.js";
 import { tenantScope } from "../../middleware/tenantScope.js";
 import { authorize } from "../../middleware/authorize.js";
 import { auditLog } from "../../middleware/auditLog.js";
+import { requireFeature } from "../../middleware/planFeature.js";
 import { validateBody, validateQuery } from "../../middleware/validate.js";
 import { createInvoiceSchema, paymentSchema, invoiceQuerySchema } from "./billing.schemas.js";
 import * as controller from "./billing.controller.js";
@@ -10,7 +11,7 @@ import * as controller from "./billing.controller.js";
 const router = Router();
 
 // Billing is a reception/admin responsibility; clinical roles have no access.
-router.use(authenticate, tenantScope, authorize("CLINIC_ADMIN", "RECEPTIONIST"));
+router.use(authenticate, tenantScope, authorize("CLINIC_ADMIN", "RECEPTIONIST"), requireFeature("billing"));
 
 router.get("/invoices", validateQuery(invoiceQuerySchema), controller.list);
 router.get("/invoices/:id", controller.getOne);

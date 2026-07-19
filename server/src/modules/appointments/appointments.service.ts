@@ -1,7 +1,6 @@
 import { ApiError } from "../../utils/ApiError.js";
 import { findPatientByIdForClinic } from "../patients/patients.repository.js";
 import { findDoctorById, isOnLeave } from "../doctors/doctors.repository.js";
-import { notify, doctorUserId } from "../notifications/notifications.service.js";
 import {
   listAppointments,
   findAppointmentById,
@@ -97,12 +96,6 @@ export async function bookAppointment(clinicId: string, createdBy: string, body:
     remarks: body.remarks ?? null,
     createdBy,
   });
-
-  // Notify the treating doctor of the new appointment (fire-and-forget).
-  const docUser = await doctorUserId(clinicId, body.doctorId);
-  if (docUser) {
-    void notify(clinicId, docUser, "APPOINTMENT_BOOKED", "New appointment", `${row.PatientName} — token ${row.TokenNo}`);
-  }
   return toDto(row);
 }
 
@@ -130,15 +123,7 @@ export async function changeStatus(
   }
 
   const row = await updateStatusRepo(clinicId, appointmentId, status, updatedBy);
-  const updated = row as AppointmentRow;
-
-  if (status === "CheckedIn") {
-    const docUser = await doctorUserId(clinicId, updated.DoctorID);
-    if (docUser) {
-      void notify(clinicId, docUser, "PATIENT_CHECKED_IN", "Patient checked in", `${updated.PatientName} (token ${updated.TokenNo}) is waiting`);
-    }
-  }
-  return toDto(updated);
+  return toDto(row as AppointmentRow);
 }
 
 export async function rescheduleAppointment(

@@ -4,12 +4,14 @@ import { createApp } from "../src/app.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { getPool, sql, closePool } from "../src/config/db.js";
 import { signAccessToken } from "../src/utils/jwt.js";
+import { createFullFeaturePlan } from "./helpers/testPlan.js";
 
 const app = createApp();
 const RUN = Date.now().toString(36);
 
 interface Ctx {
   clinicId: string;
+  planId: string;
   adminToken: string;
   adminUserId: string;
   receptionToken: string;
@@ -17,11 +19,13 @@ interface Ctx {
 
 async function makeClinic(label: string): Promise<Ctx> {
   const pool = await getPool();
+  const planId = await createFullFeaturePlan(pool, `p3-${label}-${RUN}`);
   const clinic = await pool
     .request()
     .input("name", sql.NVarChar, `P3 ${label} ${RUN}`)
+    .input("planId", sql.UniqueIdentifier, planId)
     .query<{ ClinicID: string }>(
-      `INSERT INTO Clinics (ClinicName, Status) OUTPUT INSERTED.ClinicID VALUES (@name, 'Approved')`,
+      `INSERT INTO Clinics (ClinicName, Status, SubscriptionPlanID) OUTPUT INSERTED.ClinicID VALUES (@name, 'Approved', @planId)`,
     );
   const clinicId = clinic.recordset[0].ClinicID;
 
@@ -44,6 +48,7 @@ async function makeClinic(label: string): Promise<Ctx> {
 
   return {
     clinicId,
+    planId,
     adminUserId,
     adminToken: signAccessToken({ sub: adminUserId, username: "a", role: "CLINIC_ADMIN", clinicId }),
     receptionToken: signAccessToken({ sub: recId, username: "r", role: "RECEPTIONIST", clinicId }),
@@ -64,13 +69,14 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const pool = await getPool();
-  for (const id of [A.clinicId, B.clinicId]) {
-    await pool.request().input("id", sql.UniqueIdentifier, id).query(`
+  for (const ctx of [A, B]) {
+    await pool.request().input("id", sql.UniqueIdentifier, ctx.clinicId).query(`
       DELETE FROM AuditLogs WHERE ClinicID = @id;
       DELETE FROM Doctors WHERE ClinicID = @id;
       DELETE FROM Users WHERE ClinicID = @id;
       DELETE FROM Clinics WHERE ClinicID = @id;
     `);
+    await pool.request().input("planId", sql.UniqueIdentifier, ctx.planId).query(`DELETE FROM SubscriptionPlans WHERE PlanID = @planId`);
   }
   await closePool();
 });

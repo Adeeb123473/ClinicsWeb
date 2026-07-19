@@ -2,7 +2,7 @@
 
 Multi-tenant clinic management SaaS. See [CLAUDE.md](./CLAUDE.md) for the full product/technical spec and [DECISIONS.md](./DECISIONS.md) for the build/decision log.
 
-**Status: feature-complete (Phases 1–7).** Auth + RBAC + strict tenant isolation, Super Admin portal, public landing + clinic registration/approval, subscription plans, Clinic Admin (dashboard, staff, settings, reports, audit), Reception (patient registration with duplicate detection, search, appointment booking + walk-in tokens, live queue board, billing + receipts), Clinical (nurse vitals with BMI auto-calc, doctor consultation screen, prescription builder + templates, printable Rx, patient history timeline, doctor schedules/leave), in-app notifications, and a lab orders/results module.
+**Status: feature-complete (Phases 1–7).** Auth + RBAC + strict tenant isolation, clinic-approval-gated login, subscription-plan feature gating, Super Admin portal, public landing + clinic registration/approval, subscription plans, Clinic Admin (dashboard, staff, settings, reports, audit), Reception (patient registration with duplicate detection, search, appointment booking + walk-in tokens including inline registration of new patients, live queue board, billing + receipts), Clinical (nurse vitals with BMI auto-calc, doctor consultation screen, prescription builder + templates, printable Rx, patient history timeline, doctor schedules/leave), and a lab orders/results module.
 
 ## Stack
 
@@ -96,7 +96,21 @@ npm run lint          # lint both workspaces
 
 ## API surface (`/api/v1`)
 
-`/auth` (login, refresh, logout, register-clinic), `/admin/plans`, `/admin/clinics`, `/admin/dashboard`, `/admin/audit-log`, `/users` (staff), `/clinic-settings`, `/reports`, `/patients` (+ `/:id/history`, `/duplicates`), `/doctors` (+ `/:id/slots`, `/:id/schedule`, `/:id/leaves`), `/appointments`, `/billing/invoices`, `/vitals`, `/consultations`, `/prescriptions` (+ `/templates`), `/medicines`, `/notifications`, `/lab`.
+`/auth` (login, refresh, logout, register-clinic), `/admin/plans`, `/admin/clinics`, `/admin/platform` (settings), `/admin/dashboard`, `/admin/audit-log`, `/users` (staff), `/clinic-settings`, `/reports`, `/patients` (+ `/:id/history`, `/duplicates`), `/doctors` (+ `/:id/slots`, `/:id/schedule`, `/:id/leaves`), `/appointments`, `/billing/invoices`, `/vitals`, `/consultations`, `/prescriptions` (+ `/templates`), `/medicines`, `/lab`.
+
+## Access control beyond RBAC
+
+- **Clinic approval gate:** a clinic's staff cannot log in until a Super Admin approves the
+  clinic (`Clinics.Status = 'Approved'`). A newly self-registered clinic sits in `Pending` —
+  correct credentials still return 403 (`CLINIC_NOT_APPROVED`) until approved. Suspending an
+  approved clinic blocks login (and revokes any live session on its next token refresh) too.
+- **Plan feature gating:** each `SubscriptionPlans` row carries a `Features` JSON array (e.g.
+  `["appointments","billing","reports","lab"]`). The `appointments`, `billing`, `reports`, and
+  `lab` API modules are gated behind `requireFeature(...)` middleware — a clinic whose assigned
+  plan omits a feature (or has no plan assigned at all) gets 403 (`PLAN_FEATURE_NOT_INCLUDED`)
+  on that module, and the corresponding page shows an "upgrade your plan" notice instead of an
+  empty list. Core clinical functionality (patients, consultations, vitals, prescriptions) is
+  not gated — it's baseline on every plan.
 
 Response envelope: `{ success, data, error, meta }`. Pagination via `?page=&limit=` with `meta: { page, limit, total }`.
 

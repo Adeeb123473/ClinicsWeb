@@ -129,3 +129,47 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   server tests now run with `fileParallelism: false` so the registration-toggle test can't race
   the Phase-2 registration tests. The platform test seeds a real SUPER_ADMIN user so the
   `CreatedBy`/`UpdatedBy` foreign keys resolve.
+
+## Follow-up — Notifications/Announcements removal, clinic-approval login gate, plan feature gating
+
+- **Removed the in-app notifications and platform-announcements features** entirely per explicit
+  request: server modules (`modules/notifications`, the `Announcements` half of `modules/platform`),
+  client components (`NotificationBell`, `AnnouncementBanner`), all wiring (appointment-booked /
+  checked-in / lab-result-ready notify() calls, the topbar bell, the dashboard banner), and their
+  routes (`/notifications`, `/announcements/active`, `/admin/platform/announcements`). Migration
+  026 drops the `Notifications` and `Announcements` tables — per the "never edit an applied
+  migration" rule, this is a new migration rather than editing 022/025. `PlatformSettings`
+  (platform name, support email, registration toggle, maintenance flag) is unrelated and kept.
+
+- **Fixed a real gap: clinic-approval-gated login.** `auth.service.ts` previously only checked
+  `Users.Status`, never the parent `Clinics.Status` — a newly self-registered CLINIC_ADMIN could
+  log in immediately, before Super Admin approval. Now, after password verification succeeds
+  (checked post-password so a wrong password never leaks clinic-approval state), a non-Approved
+  clinic (`Pending`/`Suspended`/`Inactive`) is rejected with 403 `CLINIC_NOT_APPROVED` and a
+  status-specific message. The same check runs on refresh, so a clinic suspended mid-session has
+  its refresh token revoked rather than being able to keep renewing its session. SUPER_ADMIN
+  (`ClinicID = NULL`) is exempt.
+
+- **Implemented plan-based feature gating** (`SubscriptionPlans.Features` existed since Phase 2
+  but was never enforced anywhere). Added `requireFeature(feature)` middleware
+  (`middleware/planFeature.ts`) that loads the clinic's assigned plan's `Features` JSON and 403s
+  with `PLAN_FEATURE_NOT_INCLUDED` if the feature isn't listed — **fails closed**: a clinic with
+  no plan assigned gets zero gated features, not everything. Applied to the four modules that
+  map onto the seed data's feature flags: `appointments`, `billing`, `reports`, `lab`. Core
+  clinical functionality (patients, consultations, vitals, prescriptions, staff, doctors) is
+  deliberately left ungated — it's baseline functionality on every plan, matching the seed
+  data model (Starter/Professional/Enterprise all differ only in these four flags plus `api`).
+  Frontend: a reusable `PlanUpgradeNotice` component replaces the empty-list state on the five
+  pages backed by gated modules (Reports, Billing, Lab, Appointments, Queue) when the API returns
+  that error code, instead of silently rendering an empty table.
+
+- **Verified doctor prescription recording** end-to-end live (book → consultation → prescription
+  write → read-back, nurse correctly blocked from writing) — unaffected by the above changes.
+
+- **Added walk-in appointment booking without a separate registration step.** `BookAppointmentModal`
+  gained an "Existing patient" / "New / walk-in patient" toggle; the new-patient path collects the
+  minimal required fields (name, gender, DOB, optional mobile/CNIC) and calls the existing
+  `POST /patients` then `POST /appointments` endpoints in sequence — no new backend endpoint, pure
+  client-side orchestration of two already-tested calls. The server's CNIC/mobile duplicate
+  detection still runs (a truly duplicate walk-in is rejected with a 409, prompting the
+  receptionist to search for the existing record instead of creating a second one).
