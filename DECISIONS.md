@@ -46,3 +46,25 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   trend, 30-day doctor workload / status mix, revenue-by-day, and CSV export for patients and
   appointments (server-side CSV via a shared `toCsv` util).
 - **Currency default** is PKR ("Rs") given the South-Asian target market; configurable per clinic.
+
+## Phase 4 — Reception
+
+- **MR number generation** is per-clinic, per-year, derived from the max existing 4-digit
+  sequence under a SERIALIZABLE transaction with UPDLOCK/HOLDLOCK; the (ClinicID, MRNo)
+  unique constraint is the backstop. Format comes from clinic settings (`mrNoFormat`).
+- **Duplicate detection** matches exact CNIC or mobile within the clinic. Registration returns
+  409 (`DUPLICATE_PATIENT`) unless the caller passes `forceDuplicate: true` ("different person").
+- **Age** is always computed from DOB at read time (never stored as source of truth); the
+  response carries a `currentAge {value, unit}` derived field.
+- **Token allocation** is per doctor per day: next = max(TokenNo)+1 under a SERIALIZABLE
+  transaction, guarded by the (ClinicID, DoctorID, Date, TokenNo) unique constraint. Walk-ins
+  omit a slot time and default to the current time.
+- **Appointment status** is a state machine enforced server-side
+  (Scheduled→CheckedIn→InConsultation→Completed, plus Cancelled/NoShow); illegal transitions 400.
+- **Billing:** invoice numbers are `${prefix}-${year}-${5-digit seq}` (SERIALIZABLE); tax comes
+  from clinic settings; recording a payment re-derives PaidAmount and Paid/PartiallyPaid status
+  atomically; over-payment beyond the outstanding balance is rejected (400).
+- **Printing** is handled client-side by opening a self-contained print window (token slip,
+  patient card, receipt) with monospace/thermal-friendly CSS — no server PDF dependency.
+- **Field filtering** is preserved end-to-end: receptionists never receive (or see a form for)
+  Allergies/ChronicConditions/BloodGroup.

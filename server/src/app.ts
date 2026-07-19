@@ -14,6 +14,9 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 import staffRoutes from "./modules/staff/staff.routes.js";
 import settingsRoutes from "./modules/clinicSettings/settings.routes.js";
 import reportsRoutes from "./modules/reports/reports.routes.js";
+import doctorsRoutes from "./modules/doctors/doctors.routes.js";
+import appointmentsRoutes from "./modules/appointments/appointments.routes.js";
+import billingRoutes from "./modules/billing/billing.routes.js";
 
 export function createApp() {
   const app = express();
@@ -48,6 +51,9 @@ export function createApp() {
   app.use("/api/v1/clinic-settings", settingsRoutes);
   app.use("/api/v1/reports", reportsRoutes);
   app.use("/api/v1/patients", patientsRoutes);
+  app.use("/api/v1/doctors", doctorsRoutes);
+  app.use("/api/v1/appointments", appointmentsRoutes);
+  app.use("/api/v1/billing", billingRoutes);
   app.use("/api/v1/consultations", consultationsRoutes);
 
   app.use(notFoundHandler);
