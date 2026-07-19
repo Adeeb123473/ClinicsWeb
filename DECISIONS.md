@@ -30,3 +30,19 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   clinical data, per the section-2 privacy boundary.
 - **Plans:** full CRUD on `SubscriptionPlans`, Super-Admin only. Deleting a plan that is in
   use is blocked (409) to preserve referential integrity; deactivate instead.
+
+## Phase 3 — Clinic Admin
+
+- **Staff creation** provisions a linked `Doctors` row in the same transaction when the new
+  user's role is DOCTOR (specialization, fees, room). New staff are created with
+  `MustChangePassword = 1`.
+- **Self-lockout guard:** a clinic admin cannot set their own account to Inactive.
+- **Clinic settings** are stored as two JSON blobs on `Clinics` (`OperatingHours`, `Settings`).
+  The `Settings` blob is the single source of truth for `mrNoFormat`, `tokenResetDaily`,
+  `taxPercent`, `currency`, `invoicePrefix`, and the prescription header/footer — later phases
+  read it via `loadClinicSettings()`. Any clinic role may READ settings (needed for currency,
+  prescription header, etc.); only CLINIC_ADMIN may WRITE them.
+- **Reports** are CLINIC_ADMIN-only and clinic-scoped: dashboard aggregates, 14-day appointment
+  trend, 30-day doctor workload / status mix, revenue-by-day, and CSV export for patients and
+  appointments (server-side CSV via a shared `toCsv` util).
+- **Currency default** is PKR ("Rs") given the South-Asian target market; configurable per clinic.

@@ -53,3 +53,16 @@ export async function apiDelete<T>(url: string): Promise<T> {
   const res = await apiClient.delete<ApiEnvelope<T>>(url);
   return unwrap(res.data);
 }
+
+/** Downloads a file from an authenticated endpoint (e.g. CSV export) and triggers a save dialog. */
+export async function downloadFile(url: string, filename: string): Promise<void> {
+  const res = await apiClient.get(url, { responseType: "blob" });
+  const blobUrl = URL.createObjectURL(res.data as Blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(blobUrl);
+}
