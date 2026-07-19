@@ -8,6 +8,9 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import patientsRoutes from "./modules/patients/patients.routes.js";
 import consultationsRoutes from "./modules/consultations/consultations.routes.js";
+import plansRoutes from "./modules/plans/plans.routes.js";
+import clinicsRoutes from "./modules/clinics/clinics.routes.js";
+import adminRoutes from "./modules/admin/admin.routes.js";
 
 export function createApp() {
   const app = express();
@@ -35,6 +38,9 @@ export function createApp() {
   });
 
   app.use("/api/v1/auth", authRoutes);
+  app.use("/api/v1/admin/plans", plansRoutes);
+  app.use("/api/v1/admin/clinics", clinicsRoutes);
+  app.use("/api/v1/admin", adminRoutes);
   app.use("/api/v1/patients", patientsRoutes);
   app.use("/api/v1/consultations", consultationsRoutes);
 

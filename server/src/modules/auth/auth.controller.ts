@@ -3,6 +3,8 @@ import { env } from "../../config/env.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import * as authService from "./auth.service.js";
+import { registerClinic } from "./registration.service.js";
+import type { RegisterClinicInput } from "./auth.schemas.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 const REFRESH_COOKIE = "refreshToken";
@@ -36,6 +38,11 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
   await authService.logout(token);
   res.clearCookie(REFRESH_COOKIE, { path: refreshCookieOptions.path });
   sendSuccess(res, null);
+});
+
+export const register = asyncHandler(async (req: Request, res: Response) => {
+  const result = await registerClinic(req.body as RegisterClinicInput);
+  sendSuccess(res, result, 201);
 });
 
 export const me = asyncHandler(async (req: Request, res: Response) => {

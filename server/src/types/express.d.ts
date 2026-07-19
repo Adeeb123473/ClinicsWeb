@@ -5,6 +5,8 @@ declare global {
     interface Request {
       /** Populated by the `authenticate` middleware from a verified access token. */
       authUser?: AccessTokenPayload;
+      /** Populated by the `validateQuery` middleware with the parsed query object. */
+      validatedQuery?: unknown;
     }
   }
 }

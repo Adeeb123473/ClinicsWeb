@@ -4,7 +4,10 @@ import { useAuthStore } from "./store/authStore";
 import { refresh } from "./features/auth/authApi";
 import { LoginPage } from "./features/auth/LoginPage";
 import { NotAuthorizedPage } from "./pages/NotAuthorizedPage";
+import { LandingPage } from "./pages/public/LandingPage";
+import { RegisterClinicPage } from "./pages/public/RegisterClinicPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { Toaster } from "./components/Toaster";
 import { SuperAdminLayout } from "./layouts/SuperAdminLayout";
 import { ClinicLayout } from "./layouts/ClinicLayout";
 
@@ -48,7 +51,7 @@ function FullPageSpinner() {
  */
 function RootRedirect() {
   const user = useAuthStore((state) => state.user);
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/welcome" replace />;
   return <Navigate to={user.role === "SUPER_ADMIN" ? "/admin" : "/app"} replace />;
 }
 
@@ -108,8 +111,12 @@ function App() {
   }
 
   return (
-    <Routes>
+    <>
+      <Toaster />
+      <Routes>
       <Route path="/" element={<RootRedirect />} />
+      <Route path="/welcome" element={<LandingPage />} />
+      <Route path="/register" element={<RegisterClinicPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/not-authorized" element={<NotAuthorizedPage />} />
 
@@ -139,7 +146,8 @@ function App() {
       </Route>
 
       <Route path="*" element={<RootRedirect />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
 
