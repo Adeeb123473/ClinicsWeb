@@ -15,7 +15,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { StatCard } from "../../components/StatCard";
 import { Card } from "../../components/Card";
 import { CenterSpinner } from "../../components/Spinner";
-import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import { UsersIcon, ClockIcon, ActivityIcon, CreditCardIcon } from "../../components/icons";
 import { formatCurrency, titleCase } from "../../utils/format";
 
@@ -27,7 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function AdminDashboardPage() {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "dashboard"],
     queryFn: adminApi.dashboard,
   });
@@ -37,7 +37,7 @@ export function AdminDashboardPage() {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title="Platform Dashboard" />
-        <EmptyState title="Couldn't load dashboard" description="Please try again in a moment." />
+        <ErrorState onRetry={() => refetch()} />
       </div>
     );
 

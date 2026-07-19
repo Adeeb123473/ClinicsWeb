@@ -88,3 +88,22 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Prescriptions/receipts/slips print via isolated windows (see utils/print.ts),
+   but if a user prints an in-app page directly, drop the sidebar/topbar chrome
+   and let the main content flow full-width. */
+@media print {
+  aside,
+  header {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+}

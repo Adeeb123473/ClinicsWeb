@@ -100,3 +100,15 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   (doctors order; nurses/admins record results and update status). Recording a result upserts
   the `LabResults` row, flips the order to `Completed`, and notifies the ordering doctor.
   Receptionists have no lab access.
+
+## Phase 7 — Polish
+
+- Most polish was built incrementally across phases: Framer Motion (sidebar stagger, modal &
+  toast springs, animated stat counters, staggered table rows, queue/timeline layout
+  animations), loading skeletons (Table) and spinners, empty states everywhere, and a global
+  `prefers-reduced-motion` CSS reset plus `useReducedMotion()` guards in animated components.
+- This pass adds: route-level page transitions in the app shell (fade/slide, reduced-motion
+  aware), a reusable `ErrorState` with a retry action wired into the dashboards, and an
+  `@media print` stylesheet that drops the sidebar/topbar chrome if an in-app page is printed
+  directly (the token slip / receipt / prescription printing continues to use isolated windows).
+- Dark mode was intentionally left out (CLAUDE.md marks it a nice-to-have after core features).

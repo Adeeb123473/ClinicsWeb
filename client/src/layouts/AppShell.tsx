@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cn } from "../utils/cn";
 import { ChevronLeftIcon, LogoutIcon } from "../components/icons";
@@ -20,6 +20,7 @@ export interface AppShellProps {
 export function AppShell({ brandLabel, navItems, showNotifications }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const location = useLocation();
   const user = useAuthStore((state) => state.user);
   const logoutMutation = useLogoutMutation();
   const navigate = useNavigate();
@@ -125,7 +126,17 @@ export function AppShell({ brandLabel, navItems, showNotifications }: AppShellPr
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>

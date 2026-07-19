@@ -17,7 +17,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { StatCard } from "../../components/StatCard";
 import { Card } from "../../components/Card";
 import { CenterSpinner } from "../../components/Spinner";
-import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import { CalendarIcon, UserPlusIcon, CreditCardIcon, ClipboardIcon } from "../../components/icons";
 import { formatCurrency } from "../../utils/format";
 
@@ -31,14 +31,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function DashboardPage() {
-  const { data, isLoading, isError } = useQuery({ queryKey: ["clinic", "dashboard"], queryFn: clinicAdminApi.dashboard });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["clinic", "dashboard"], queryFn: clinicAdminApi.dashboard });
 
   if (isLoading) return <CenterSpinner />;
   if (isError || !data)
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title="Dashboard" />
-        <EmptyState title="Couldn't load dashboard" description="Please try again in a moment." />
+        <ErrorState onRetry={() => refetch()} />
       </div>
     );
 
