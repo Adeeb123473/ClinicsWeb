@@ -4,7 +4,10 @@ import { useAuthStore } from "./store/authStore";
 import { refresh } from "./features/auth/authApi";
 import { LoginPage } from "./features/auth/LoginPage";
 import { NotAuthorizedPage } from "./pages/NotAuthorizedPage";
+import { LandingPage } from "./pages/public/LandingPage";
+import { RegisterClinicPage } from "./pages/public/RegisterClinicPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { Toaster } from "./components/Toaster";
 import { SuperAdminLayout } from "./layouts/SuperAdminLayout";
 import { ClinicLayout } from "./layouts/ClinicLayout";
 
@@ -27,6 +30,9 @@ import { ClinicAuditLogPage } from "./pages/app/AuditLogPage";
 import { SchedulePage } from "./pages/app/SchedulePage";
 import { BillingPage } from "./pages/app/BillingPage";
 import { VitalsPage } from "./pages/app/VitalsPage";
+import { ConsultationPage } from "./pages/app/ConsultationPage";
+import { PatientDetailPage } from "./pages/app/PatientDetailPage";
+import { LabPage } from "./pages/app/LabPage";
 
 const CLINIC_ROLES = ["CLINIC_ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE"] as const;
 
@@ -48,7 +54,7 @@ function FullPageSpinner() {
  */
 function RootRedirect() {
   const user = useAuthStore((state) => state.user);
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/welcome" replace />;
   return <Navigate to={user.role === "SUPER_ADMIN" ? "/admin" : "/app"} replace />;
 }
 
@@ -108,8 +114,12 @@ function App() {
   }
 
   return (
-    <Routes>
+    <>
+      <Toaster />
+      <Routes>
       <Route path="/" element={<RootRedirect />} />
+      <Route path="/welcome" element={<LandingPage />} />
+      <Route path="/register" element={<RegisterClinicPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/not-authorized" element={<NotAuthorizedPage />} />
 
@@ -128,6 +138,8 @@ function App() {
           <Route index element={<ClinicHomePage />} />
           <Route path="staff" element={<StaffPage />} />
           <Route path="patients" element={<PatientsPage />} />
+          <Route path="patients/:id" element={<PatientDetailPage />} />
+          <Route path="consultation/:appointmentId" element={<ConsultationPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<ClinicSettingsPage />} />
@@ -135,11 +147,13 @@ function App() {
           <Route path="schedule" element={<SchedulePage />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="vitals" element={<VitalsPage />} />
+          <Route path="lab" element={<LabPage />} />
         </Route>
       </Route>
 
       <Route path="*" element={<RootRedirect />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
 
