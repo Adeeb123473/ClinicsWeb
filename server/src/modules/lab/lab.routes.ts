@@ -4,6 +4,7 @@ import { authenticate } from "../../middleware/authenticate.js";
 import { tenantScope } from "../../middleware/tenantScope.js";
 import { authorize } from "../../middleware/authorize.js";
 import { auditLog } from "../../middleware/auditLog.js";
+import { requireFeature } from "../../middleware/planFeature.js";
 import { validateBody } from "../../middleware/validate.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
@@ -11,7 +12,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import * as service from "./lab.service.js";
 
 const router = Router();
-router.use(authenticate, tenantScope);
+router.use(authenticate, tenantScope, requireFeature("lab"));
 
 function clinicId(req: import("express").Request): string {
   if (!req.authUser?.clinicId) throw ApiError.unauthorized();

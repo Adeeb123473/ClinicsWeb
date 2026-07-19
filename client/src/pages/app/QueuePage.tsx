@@ -10,8 +10,9 @@ import { Button } from "../../components/Button";
 import { CenterSpinner } from "../../components/Spinner";
 import { EmptyState } from "../../components/EmptyState";
 import { PlusIcon, PrintIcon } from "../../components/icons";
+import { PlanUpgradeNotice } from "../../components/PlanUpgradeNotice";
 import { toast } from "../../store/toastStore";
-import { errorMessage } from "../../api/http";
+import { errorMessage, errorCode } from "../../api/http";
 import { printHtml, tokenSlipHtml } from "../../utils/print";
 
 const statusTone: Record<string, "info" | "warning" | "primary" | "success" | "danger" | "neutral"> = {
@@ -42,7 +43,7 @@ export function QueuePage() {
   const [date, setDate] = useState(today);
   const [booking, setBooking] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["queue", date],
     queryFn: () => clinicApi.getQueue({ date }),
     refetchInterval: 15000,
@@ -79,6 +80,15 @@ export function QueuePage() {
         visitType: a.visitType,
       }),
     );
+
+  if (isError && errorCode(error) === "PLAN_FEATURE_NOT_INCLUDED") {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Queue" subtitle="Live token board" />
+        <PlanUpgradeNotice message={errorMessage(error)} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

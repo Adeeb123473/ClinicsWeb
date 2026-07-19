@@ -6,8 +6,9 @@ import { PageHeader } from "../../components/PageHeader";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { CenterSpinner } from "../../components/Spinner";
+import { PlanUpgradeNotice } from "../../components/PlanUpgradeNotice";
 import { DownloadIcon } from "../../components/icons";
-import { downloadFile, errorMessage } from "../../api/http";
+import { downloadFile, errorMessage, errorCode } from "../../api/http";
 import { toast } from "../../store/toastStore";
 import { formatCurrency } from "../../utils/format";
 
@@ -29,6 +30,15 @@ export function ReportsPage() {
   };
 
   if (dashboard.isLoading) return <CenterSpinner />;
+
+  if (dashboard.isError && errorCode(dashboard.error) === "PLAN_FEATURE_NOT_INCLUDED") {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Reports" subtitle="Trends and exports for your clinic" />
+        <PlanUpgradeNotice message={errorMessage(dashboard.error)} />
+      </div>
+    );
+  }
 
   const trend = dashboard.data?.appointmentTrend ?? [];
   const rev = revenue.data ?? [];

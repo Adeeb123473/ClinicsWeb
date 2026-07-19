@@ -68,6 +68,42 @@ export async function listClinics(
   return { rows: rowsResult.recordset, total: countResult.recordset[0].total };
 }
 
+/** Lightweight status-only lookup, used on the login hot path (avoids the plan JOIN). */
+export async function findClinicStatus(clinicId: string): Promise<ClinicStatus | null> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input("clinicId", sql.UniqueIdentifier, clinicId)
+    .query<{ Status: ClinicStatus }>(`SELECT Status FROM Clinics WHERE ClinicID = @clinicId`);
+  return result.recordset[0]?.Status ?? null;
+}
+
+/**
+ * The feature flags granted by the clinic's assigned subscription plan (SubscriptionPlans.Features).
+ * Returns an empty array if the clinic has no plan assigned, or the plan has no features —
+ * callers should treat "not in this list" as "not entitled", never fail open.
+ */
+export async function getClinicPlanFeatures(clinicId: string): Promise<string[]> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input("clinicId", sql.UniqueIdentifier, clinicId)
+    .query<{ Features: string | null }>(`
+      SELECT p.Features
+      FROM Clinics c
+      LEFT JOIN SubscriptionPlans p ON p.PlanID = c.SubscriptionPlanID
+      WHERE c.ClinicID = @clinicId
+    `);
+  const raw = result.recordset[0]?.Features;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function findClinicById(clinicId: string): Promise<ClinicListRow | null> {
   const pool = await getPool();
   const result = await pool

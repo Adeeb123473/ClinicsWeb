@@ -9,8 +9,9 @@ import { Input } from "../../components/Input";
 import { Select } from "../../components/Select";
 import { Modal } from "../../components/Modal";
 import { PlusIcon, PrintIcon, SearchIcon, TrashIcon } from "../../components/icons";
+import { PlanUpgradeNotice } from "../../components/PlanUpgradeNotice";
 import { toast } from "../../store/toastStore";
-import { errorMessage } from "../../api/http";
+import { errorMessage, errorCode } from "../../api/http";
 import { formatCurrency, formatDate } from "../../utils/format";
 import { printHtml, receiptHtml } from "../../utils/print";
 
@@ -26,7 +27,7 @@ export function BillingPage() {
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<InvoiceSummary | null>(null);
 
-  const { data: invoices, isLoading } = useQuery({ queryKey: ["invoices"], queryFn: () => clinicApi.listInvoices() });
+  const { data: invoices, isLoading, isError, error } = useQuery({ queryKey: ["invoices"], queryFn: () => clinicApi.listInvoices() });
 
   const printReceipt = async (inv: InvoiceSummary) => {
     const full = await clinicApi.getInvoice(inv.invoiceId);
@@ -85,6 +86,15 @@ export function BillingPage() {
       ),
     },
   ];
+
+  if (isError && errorCode(error) === "PLAN_FEATURE_NOT_INCLUDED") {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Billing" subtitle="Invoices, payments, and receipts" />
+        <PlanUpgradeNotice message={errorMessage(error)} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

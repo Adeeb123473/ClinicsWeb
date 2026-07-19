@@ -11,8 +11,9 @@ import { Select } from "../../components/Select";
 import { Modal } from "../../components/Modal";
 import { Textarea } from "../../components/Textarea";
 import { PlusIcon, SearchIcon, FlaskIcon } from "../../components/icons";
+import { PlanUpgradeNotice } from "../../components/PlanUpgradeNotice";
 import { toast } from "../../store/toastStore";
-import { errorMessage } from "../../api/http";
+import { errorMessage, errorCode } from "../../api/http";
 import { useAuthStore } from "../../store/authStore";
 import { formatDateTime } from "../../utils/format";
 
@@ -30,7 +31,7 @@ export function LabPage() {
   const [ordering, setOrdering] = useState(false);
   const [resulting, setResulting] = useState<LabOrder | null>(null);
 
-  const { data: orders, isLoading } = useQuery({ queryKey: ["lab-orders"], queryFn: () => labApi.listOrders() });
+  const { data: orders, isLoading, isError, error } = useQuery({ queryKey: ["lab-orders"], queryFn: () => labApi.listOrders() });
 
   const columns: Column<LabOrder>[] = [
     { key: "test", header: "Test", render: (o) => <span className="font-medium text-slate-800">{o.testName}</span> },
@@ -64,6 +65,15 @@ export function LabPage() {
         ),
     },
   ];
+
+  if (isError && errorCode(error) === "PLAN_FEATURE_NOT_INCLUDED") {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Lab" subtitle="Orders and results" />
+        <PlanUpgradeNotice message={errorMessage(error)} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

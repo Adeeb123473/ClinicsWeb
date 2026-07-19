@@ -10,5 +10,5 @@ export function ClinicLayout() {
   const role = useAuthStore((state) => state.user?.role);
   const navItems = role && role !== "SUPER_ADMIN" ? clinicNavByRole[role] : [];
 
-  return <AppShell brandLabel="ClinicOS" navItems={navItems} showNotifications />;
+  return <AppShell brandLabel="ClinicOS" navItems={navItems} />;
 }

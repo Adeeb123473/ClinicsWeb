@@ -3,13 +3,14 @@ import { authenticate } from "../../middleware/authenticate.js";
 import { tenantScope } from "../../middleware/tenantScope.js";
 import { authorize } from "../../middleware/authorize.js";
 import { auditLog } from "../../middleware/auditLog.js";
+import { requireFeature } from "../../middleware/planFeature.js";
 import { validateBody, validateQuery } from "../../middleware/validate.js";
 import { bookSchema, queueQuerySchema, statusSchema, rescheduleSchema } from "./appointments.schemas.js";
 import * as controller from "./appointments.controller.js";
 
 const router = Router();
 
-router.use(authenticate, tenantScope);
+router.use(authenticate, tenantScope, requireFeature("appointments"));
 
 // Reading the queue: all clinic roles.
 router.get(

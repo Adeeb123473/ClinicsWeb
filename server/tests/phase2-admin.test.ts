@@ -191,6 +191,47 @@ describe("Phase 2 — Clinic registration + approval", () => {
     expect(approve.body.data.status).toBe("Approved");
   });
 
+  it("blocks login for a Pending clinic's admin, then allows it once approved, then blocks it again once suspended", async () => {
+    const username = `gate.${RUN}`;
+    const password = "Passw0rdGate1";
+    createdUsernames.push(username);
+
+    const reg = await request(app).post("/api/v1/auth/register-clinic").send({
+      clinicName: `Gate Clinic ${RUN}`,
+      clinicEmail: `gate.${RUN}@example.com`,
+      adminFullName: "Gate Admin",
+      adminUsername: username,
+      adminEmail: `gateadmin.${RUN}@example.com`,
+      password,
+    });
+    expect(reg.status).toBe(201);
+    const clinicId = reg.body.data.clinicId;
+    createdClinicIds.push(clinicId);
+
+    // Correct credentials, but the clinic is still Pending — login must be rejected.
+    const pendingLogin = await request(app).post("/api/v1/auth/login").send({ username, password });
+    expect(pendingLogin.status).toBe(403);
+    expect(pendingLogin.body.error.code).toBe("CLINIC_NOT_APPROVED");
+
+    await request(app)
+      .post(`/api/v1/admin/clinics/${clinicId}/actions`)
+      .set("Authorization", `Bearer ${superAdminToken}`)
+      .send({ action: "approve" });
+
+    const approvedLogin = await request(app).post("/api/v1/auth/login").send({ username, password });
+    expect(approvedLogin.status).toBe(200);
+    expect(approvedLogin.body.data.accessToken).toBeTypeOf("string");
+
+    await request(app)
+      .post(`/api/v1/admin/clinics/${clinicId}/actions`)
+      .set("Authorization", `Bearer ${superAdminToken}`)
+      .send({ action: "suspend" });
+
+    const suspendedLogin = await request(app).post("/api/v1/auth/login").send({ username, password });
+    expect(suspendedLogin.status).toBe(403);
+    expect(suspendedLogin.body.error.code).toBe("CLINIC_NOT_APPROVED");
+  });
+
   it("rejects a duplicate username at registration (409)", async () => {
     const username = `dup.${RUN}`;
     createdUsernames.push(username);

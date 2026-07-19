@@ -19,6 +19,16 @@ const VISIT_TYPES = [
   { value: "Insurance", label: "Insurance" },
 ];
 
+interface NewPatientForm {
+  patientName: string;
+  gender: string;
+  actualDOB: string;
+  mobileNo: string;
+  cnic: string;
+}
+
+const emptyNewPatient: NewPatientForm = { patientName: "", gender: "Male", actualDOB: "", mobileNo: "", cnic: "" };
+
 export function BookAppointmentModal({
   date,
   presetPatient,
@@ -31,6 +41,8 @@ export function BookAppointmentModal({
   onBooked: (a: Appointment) => void;
 }) {
   const [patient, setPatient] = useState<Patient | null>(presetPatient ?? null);
+  const [patientMode, setPatientMode] = useState<"existing" | "new">("existing");
+  const [newPatient, setNewPatient] = useState<NewPatientForm>(emptyNewPatient);
   const [search, setSearch] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [time, setTime] = useState<string>("");
@@ -41,7 +53,7 @@ export function BookAppointmentModal({
   const searchQuery = useQuery({
     queryKey: ["patients", "book-search", search],
     queryFn: () => clinicApi.searchPatients(search, 1, 6),
-    enabled: !patient && search.length > 1,
+    enabled: patientMode === "existing" && !patient && search.length > 1,
   });
   const slotsQuery = useQuery({
     queryKey: ["slots", doctorId, date],
@@ -49,15 +61,38 @@ export function BookAppointmentModal({
     enabled: Boolean(doctorId) && !walkIn,
   });
 
+  const canSubmit =
+    Boolean(doctorId) &&
+    (!walkIn ? Boolean(time) : true) &&
+    (patientMode === "existing" ? Boolean(patient) : Boolean(newPatient.patientName.trim() && newPatient.actualDOB));
+
   const mutation = useMutation({
-    mutationFn: () =>
-      clinicApi.book({
-        patientId: patient!.PatientID,
+    mutationFn: async () => {
+      // A walk-in patient who hasn't been through the separate registration screen yet —
+      // register them inline (server still runs full CNIC/mobile duplicate detection) and
+      // book the appointment for the newly created record in one step.
+      const patientId =
+        patientMode === "new"
+          ? (
+              await clinicApi.registerPatient({
+                patientName: newPatient.patientName,
+                gender: newPatient.gender,
+                actualDOB: newPatient.actualDOB,
+                mobileNo: newPatient.mobileNo || null,
+                cnic: newPatient.cnic || null,
+                category: "General",
+              })
+            ).PatientID
+          : patient!.PatientID;
+
+      return clinicApi.book({
+        patientId,
         doctorId,
         date,
         time: walkIn ? undefined : time || undefined,
         visitType,
-      }),
+      });
+    },
     onSuccess: (a) => {
       toast.success(`Booked — token ${a.tokenNo}`);
       onBooked(a);
@@ -76,52 +111,113 @@ export function BookAppointmentModal({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            isLoading={mutation.isPending}
-            disabled={!patient || !doctorId || (!walkIn && !time)}
-            onClick={() => mutation.mutate()}
-          >
+          <Button isLoading={mutation.isPending} disabled={!canSubmit} onClick={() => mutation.mutate()}>
             Book & issue token
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        {patient ? (
-          <div className="flex items-center justify-between rounded-xl bg-primary-50 p-3">
-            <div>
-              <p className="font-medium text-slate-800">{patient.PatientName}</p>
-              <p className="text-xs text-slate-500">
-                {patient.MRNo} · {patient.MobileNo ?? "—"}
-              </p>
-            </div>
-            {!presetPatient && (
-              <Button size="sm" variant="ghost" onClick={() => setPatient(null)}>
-                Change
-              </Button>
-            )}
+        {!presetPatient && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPatientMode("existing")}
+              className={cn(
+                "flex-1 rounded-xl border px-3 py-2 text-sm font-medium",
+                patientMode === "existing" ? "border-primary-400 bg-primary-50 text-primary-700" : "border-slate-200 text-slate-500",
+              )}
+            >
+              Existing patient
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPatientMode("new");
+                setPatient(null);
+              }}
+              className={cn(
+                "flex-1 rounded-xl border px-3 py-2 text-sm font-medium",
+                patientMode === "new" ? "border-primary-400 bg-primary-50 text-primary-700" : "border-slate-200 text-slate-500",
+              )}
+            >
+              New / walk-in patient
+            </button>
           </div>
-        ) : (
-          <div>
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input placeholder="Search patient by name / MR / mobile" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-            </div>
-            {searchQuery.data && searchQuery.data.data.length > 0 && (
-              <div className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-slate-100">
-                {searchQuery.data.data.map((p) => (
-                  <button
-                    key={p.PatientID}
-                    type="button"
-                    onClick={() => setPatient(p)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"
-                  >
-                    <span className="font-medium text-slate-700">{p.PatientName}</span>
-                    <span className="text-xs text-slate-400">{p.MRNo}</span>
-                  </button>
-                ))}
+        )}
+
+        {patientMode === "existing" ? (
+          patient ? (
+            <div className="flex items-center justify-between rounded-xl bg-primary-50 p-3">
+              <div>
+                <p className="font-medium text-slate-800">{patient.PatientName}</p>
+                <p className="text-xs text-slate-500">
+                  {patient.MRNo} · {patient.MobileNo ?? "—"}
+                </p>
               </div>
-            )}
+              {!presetPatient && (
+                <Button size="sm" variant="ghost" onClick={() => setPatient(null)}>
+                  Change
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="relative">
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input placeholder="Search patient by name / MR / mobile" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+              </div>
+              {searchQuery.data && searchQuery.data.data.length > 0 && (
+                <div className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-slate-100">
+                  {searchQuery.data.data.map((p) => (
+                    <button
+                      key={p.PatientID}
+                      type="button"
+                      onClick={() => setPatient(p)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"
+                    >
+                      <span className="font-medium text-slate-700">{p.PatientName}</span>
+                      <span className="text-xs text-slate-400">{p.MRNo}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        ) : (
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Quick registration — a full patient record is created automatically
+            </p>
+            <div className="flex flex-col gap-3">
+              <Input
+                label="Patient name"
+                value={newPatient.patientName}
+                onChange={(e) => setNewPatient({ ...newPatient, patientName: e.target.value })}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Select
+                  label="Gender"
+                  value={newPatient.gender}
+                  onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}
+                  options={[
+                    { value: "Male", label: "Male" },
+                    { value: "Female", label: "Female" },
+                    { value: "Other", label: "Other" },
+                  ]}
+                />
+                <Input
+                  label="Date of birth"
+                  type="date"
+                  value={newPatient.actualDOB}
+                  onChange={(e) => setNewPatient({ ...newPatient, actualDOB: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Mobile (optional)" value={newPatient.mobileNo} onChange={(e) => setNewPatient({ ...newPatient, mobileNo: e.target.value })} />
+                <Input label="CNIC (optional)" value={newPatient.cnic} onChange={(e) => setNewPatient({ ...newPatient, cnic: e.target.value })} hint="35202-1234567-1" />
+              </div>
+            </div>
           </div>
         )}
 

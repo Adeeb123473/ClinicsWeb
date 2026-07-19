@@ -4,12 +4,14 @@ import { createApp } from "../src/app.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { getPool, sql, closePool } from "../src/config/db.js";
 import { signAccessToken } from "../src/utils/jwt.js";
+import { createFullFeaturePlan } from "./helpers/testPlan.js";
 
 const app = createApp();
 const RUN = Date.now().toString(36);
 
 interface Ctx {
   clinicId: string;
+  planId: string;
   doctorId: string;
   adminToken: string;
   receptionToken: string;
@@ -19,10 +21,12 @@ interface Ctx {
 
 async function makeClinic(label: string): Promise<Ctx> {
   const pool = await getPool();
+  const planId = await createFullFeaturePlan(pool, `p4-${label}-${RUN}`);
   const clinic = await pool
     .request()
     .input("name", sql.NVarChar, `P4 ${label} ${RUN}`)
-    .query<{ ClinicID: string }>(`INSERT INTO Clinics (ClinicName, Status) OUTPUT INSERTED.ClinicID VALUES (@name, 'Approved')`);
+    .input("planId", sql.UniqueIdentifier, planId)
+    .query<{ ClinicID: string }>(`INSERT INTO Clinics (ClinicName, Status, SubscriptionPlanID) OUTPUT INSERTED.ClinicID VALUES (@name, 'Approved', @planId)`);
   const clinicId = clinic.recordset[0].ClinicID;
 
   async function user(role: string): Promise<string> {
@@ -52,6 +56,7 @@ async function makeClinic(label: string): Promise<Ctx> {
 
   return {
     clinicId,
+    planId,
     doctorId: doc.recordset[0].DoctorID,
     adminToken: signAccessToken({ sub: adminId, username: "a", role: "CLINIC_ADMIN", clinicId }),
     receptionToken: signAccessToken({ sub: recId, username: "r", role: "RECEPTIONIST", clinicId }),
@@ -72,9 +77,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const pool = await getPool();
-  for (const id of [A.clinicId, B.clinicId]) {
-    await pool.request().input("id", sql.UniqueIdentifier, id).query(`
-      DELETE FROM Notifications WHERE ClinicID = @id;
+  for (const ctx of [A, B]) {
+    await pool.request().input("id", sql.UniqueIdentifier, ctx.clinicId).query(`
       DELETE FROM Payments WHERE ClinicID = @id;
       DELETE FROM InvoiceItems WHERE InvoiceID IN (SELECT InvoiceID FROM Invoices WHERE ClinicID = @id);
       DELETE FROM Invoices WHERE ClinicID = @id;
@@ -85,6 +89,7 @@ afterAll(async () => {
       DELETE FROM Users WHERE ClinicID = @id;
       DELETE FROM Clinics WHERE ClinicID = @id;
     `);
+    await pool.request().input("planId", sql.UniqueIdentifier, ctx.planId).query(`DELETE FROM SubscriptionPlans WHERE PlanID = @planId`);
   }
   await closePool();
 });

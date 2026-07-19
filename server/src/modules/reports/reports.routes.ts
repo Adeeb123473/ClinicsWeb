@@ -2,12 +2,13 @@ import { Router } from "express";
 import { authenticate } from "../../middleware/authenticate.js";
 import { tenantScope } from "../../middleware/tenantScope.js";
 import { authorize } from "../../middleware/authorize.js";
+import { requireFeature } from "../../middleware/planFeature.js";
 import * as reportsController from "./reports.controller.js";
 
 const router = Router();
 
 // Reports are for CLINIC_ADMIN only, scoped to their clinic.
-router.use(authenticate, tenantScope, authorize("CLINIC_ADMIN"));
+router.use(authenticate, tenantScope, authorize("CLINIC_ADMIN"), requireFeature("reports"));
 
 router.get("/dashboard", reportsController.dashboard);
 router.get("/revenue", reportsController.revenue);

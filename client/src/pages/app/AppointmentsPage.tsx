@@ -9,8 +9,9 @@ import { Button } from "../../components/Button";
 import { Modal } from "../../components/Modal";
 import { Input } from "../../components/Input";
 import { PlusIcon } from "../../components/icons";
+import { PlanUpgradeNotice } from "../../components/PlanUpgradeNotice";
 import { toast } from "../../store/toastStore";
-import { errorMessage } from "../../api/http";
+import { errorMessage, errorCode } from "../../api/http";
 import { formatTime } from "../../utils/format";
 
 const statusTone: Record<string, "info" | "warning" | "primary" | "success" | "danger" | "neutral"> = {
@@ -28,7 +29,7 @@ export function AppointmentsPage() {
   const [booking, setBooking] = useState(false);
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
 
-  const { data, isLoading } = useQuery({ queryKey: ["appointments", date], queryFn: () => clinicApi.getQueue({ date }) });
+  const { data, isLoading, isError, error } = useQuery({ queryKey: ["appointments", date], queryFn: () => clinicApi.getQueue({ date }) });
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => clinicApi.setStatus(id, "Cancelled"),
@@ -73,6 +74,15 @@ export function AppointmentsPage() {
         ),
     },
   ];
+
+  if (isError && errorCode(error) === "PLAN_FEATURE_NOT_INCLUDED") {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Appointments" subtitle="Schedule and manage appointments" />
+        <PlanUpgradeNotice message={errorMessage(error)} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

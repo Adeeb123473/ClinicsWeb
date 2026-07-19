@@ -11,7 +11,30 @@ import {
   setRefreshTokenHash,
   type UserRow,
 } from "../users/users.repository.js";
+import { findClinicStatus } from "../clinics/clinics.repository.js";
 import type { AuthUser } from "../../types/auth.js";
+
+const CLINIC_STATUS_MESSAGE: Record<string, string> = {
+  Pending: "Your clinic's registration is still pending approval by the platform administrator.",
+  Suspended: "Your clinic's account has been suspended. Please contact platform support.",
+  Inactive: "Your clinic's account is inactive. Please contact platform support.",
+};
+
+/**
+ * Staff of a clinic that isn't Approved must not be able to sign in — a clinic is fully
+ * unusable until the Super Admin approves it (CLAUDE.md registration/approval flow).
+ * SUPER_ADMIN has ClinicID = NULL and is exempt.
+ */
+async function assertClinicIsUsable(clinicId: string | null): Promise<void> {
+  if (!clinicId) return;
+  const status = await findClinicStatus(clinicId);
+  if (status !== "Approved") {
+    throw ApiError.forbidden(
+      CLINIC_STATUS_MESSAGE[status ?? "Inactive"] ?? CLINIC_STATUS_MESSAGE.Inactive,
+      "CLINIC_NOT_APPROVED",
+    );
+  }
+}
 
 export interface LoginResult {
   accessToken: string;
@@ -85,6 +108,22 @@ export async function login(username: string, password: string, ipAddress: strin
     );
   }
 
+  // Password is correct at this point — safe to reveal clinic-approval state (own account,
+  // not an enumeration risk) rather than folding it into the generic invalid-credentials path.
+  try {
+    await assertClinicIsUsable(row.ClinicID);
+  } catch (err) {
+    await recordAuditLog({
+      clinicId: row.ClinicID,
+      userId: row.UserID,
+      action: "LOGIN_BLOCKED_CLINIC_STATUS",
+      entity: "User",
+      entityId: row.UserID,
+      ipAddress,
+    });
+    throw err;
+  }
+
   await recordLoginSuccess(row.UserID);
   const { accessToken, refreshToken } = await issueSession(row);
 
@@ -122,6 +161,15 @@ export async function refresh(refreshToken: string | undefined): Promise<LoginRe
     // Token reuse / revoked session — invalidate the stored session defensively.
     await setRefreshTokenHash(row.UserID, null);
     throw ApiError.unauthorized("Session no longer valid");
+  }
+
+  // A clinic suspended/deactivated after the session was issued must not be able to keep
+  // refreshing — revoke the session so the next attempt requires a fresh login.
+  try {
+    await assertClinicIsUsable(row.ClinicID);
+  } catch (err) {
+    await setRefreshTokenHash(row.UserID, null);
+    throw err;
   }
 
   const { accessToken, refreshToken: newRefreshToken } = await issueSession(row);
