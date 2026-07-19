@@ -3,6 +3,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { hashPassword } from "../../utils/password.js";
 import { recordAuditLog } from "../../middleware/auditLog.js";
 import { findUserByUsername } from "../users/users.repository.js";
+import { getPlatformSettings } from "../platform/platform.service.js";
 import type { RegisterClinicInput } from "./auth.schemas.js";
 
 export interface RegistrationResult {
@@ -17,6 +18,12 @@ export interface RegistrationResult {
  * user in a single transaction. The clinic stays Pending until a Super Admin approves it.
  */
 export async function registerClinic(input: RegisterClinicInput): Promise<RegistrationResult> {
+  // Respect the platform-level toggle set by the Super Admin.
+  const platform = await getPlatformSettings();
+  if (!platform.allowClinicRegistration) {
+    throw ApiError.forbidden("New clinic registrations are currently disabled", "REGISTRATION_DISABLED");
+  }
+
   const existing = await findUserByUsername(input.adminUsername);
   if (existing) {
     throw ApiError.conflict("That username is already taken", "USERNAME_TAKEN");

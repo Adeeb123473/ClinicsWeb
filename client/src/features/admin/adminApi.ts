@@ -1,4 +1,4 @@
-import { apiGet, apiGetWithMeta, apiPost, apiPut, apiDelete } from "../../api/http";
+import { apiGet, apiGetWithMeta, apiPost, apiPut, apiPatch, apiDelete } from "../../api/http";
 
 export interface Plan {
   planId: string;
@@ -61,9 +61,34 @@ export interface AdminAuditEntry {
   timestamp: string;
 }
 
+export interface PlatformSettings {
+  platformName: string;
+  supportEmail: string;
+  allowClinicRegistration: boolean;
+  maintenanceMode: boolean;
+}
+
+export interface Announcement {
+  announcementId: string;
+  title: string;
+  body: string | null;
+  level: "info" | "warning" | "critical";
+  isActive: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+}
+
 export const adminApi = {
   dashboard: () => apiGet<DashboardStats>("/admin/dashboard"),
   auditLog: () => apiGet<AdminAuditEntry[]>("/admin/audit-log"),
+
+  getPlatformSettings: () => apiGet<PlatformSettings>("/admin/platform/settings"),
+  updatePlatformSettings: (input: PlatformSettings) => apiPut<PlatformSettings>("/admin/platform/settings", input),
+  listAnnouncements: () => apiGet<Announcement[]>("/admin/platform/announcements"),
+  createAnnouncement: (input: { title: string; body: string | null; level: string }) => apiPost<Announcement>("/admin/platform/announcements", input),
+  toggleAnnouncement: (id: string, isActive: boolean) => apiPatch<Announcement>(`/admin/platform/announcements/${id}`, { isActive }),
+  deleteAnnouncement: (id: string) => apiDelete<null>(`/admin/platform/announcements/${id}`),
 
   listPlans: () => apiGet<Plan[]>("/admin/plans"),
   createPlan: (input: PlanInput) => apiPost<Plan>("/admin/plans", input),

@@ -112,3 +112,20 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   `@media print` stylesheet that drops the sidebar/topbar chrome if an in-app page is printed
   directly (the token slip / receipt / prescription printing continues to use isolated windows).
 - Dark mode was intentionally left out (CLAUDE.md marks it a nice-to-have after core features).
+
+## Follow-up — Platform Settings & Announcements (completing Phase 2)
+
+- The Super Admin **Platform Settings** page was left as a placeholder in the original Phase 2
+  pass and is now implemented (CLAUDE.md §4, Super Admin item 4).
+- **Platform settings** are a single-row JSON blob (`PlatformSettings`, migration 025):
+  `platformName`, `supportEmail`, `allowClinicRegistration`, `maintenanceMode`. Turning
+  `allowClinicRegistration` off makes public `POST /auth/register-clinic` return 403
+  (`REGISTRATION_DISABLED`).
+- **Announcements** (`Announcements` table) are created by the Super Admin with a level
+  (info/warning/critical) and optional start/end window. Active ones are served to any
+  authenticated clinic user via `GET /announcements/active` and rendered as a dismissible
+  banner at the top of the clinic shell (all clinic dashboards).
+- **Test determinism:** because `PlatformSettings` is a true singleton shared across suites,
+  server tests now run with `fileParallelism: false` so the registration-toggle test can't race
+  the Phase-2 registration tests. The platform test seeds a real SUPER_ADMIN user so the
+  `CreatedBy`/`UpdatedBy` foreign keys resolve.

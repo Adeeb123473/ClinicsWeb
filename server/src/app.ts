@@ -23,6 +23,7 @@ import medicinesRoutes from "./modules/medicines/medicines.module.js";
 import historyRoutes from "./modules/history/history.routes.js";
 import notificationsRoutes from "./modules/notifications/notifications.routes.js";
 import labRoutes from "./modules/lab/lab.routes.js";
+import { platformAdminRoutes, announcementsRoutes } from "./modules/platform/platform.routes.js";
 
 export function createApp() {
   const app = express();
@@ -52,7 +53,9 @@ export function createApp() {
   app.use("/api/v1/auth", authRoutes);
   app.use("/api/v1/admin/plans", plansRoutes);
   app.use("/api/v1/admin/clinics", clinicsRoutes);
+  app.use("/api/v1/admin/platform", platformAdminRoutes);
   app.use("/api/v1/admin", adminRoutes);
+  app.use("/api/v1/announcements", announcementsRoutes);
   app.use("/api/v1/users", staffRoutes);
   app.use("/api/v1/clinic-settings", settingsRoutes);
   app.use("/api/v1/reports", reportsRoutes);

@@ -6,6 +6,7 @@ import { ChevronLeftIcon, LogoutIcon } from "../components/icons";
 import { useAuthStore } from "../store/authStore";
 import { useLogoutMutation } from "../features/auth/useAuthMutations";
 import { NotificationBell } from "../features/notifications/NotificationBell";
+import { AnnouncementBanner } from "../features/announcements/AnnouncementBanner";
 import type { NavItem } from "./navConfig";
 
 export interface AppShellProps {
@@ -126,6 +127,11 @@ export function AppShell({ brandLabel, navItems, showNotifications }: AppShellPr
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">
+          {showNotifications && (
+            <div className="mb-4">
+              <AnnouncementBanner />
+            </div>
+          )}
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
