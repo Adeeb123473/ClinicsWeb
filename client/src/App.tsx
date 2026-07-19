@@ -32,6 +32,7 @@ import { BillingPage } from "./pages/app/BillingPage";
 import { VitalsPage } from "./pages/app/VitalsPage";
 import { ConsultationPage } from "./pages/app/ConsultationPage";
 import { PatientDetailPage } from "./pages/app/PatientDetailPage";
+import { LabPage } from "./pages/app/LabPage";
 
 const CLINIC_ROLES = ["CLINIC_ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE"] as const;
 
@@ -146,6 +147,7 @@ function App() {
           <Route path="schedule" element={<SchedulePage />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="vitals" element={<VitalsPage />} />
+          <Route path="lab" element={<LabPage />} />
         </Route>
       </Route>
 

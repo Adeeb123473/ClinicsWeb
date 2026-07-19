@@ -5,16 +5,19 @@ import { cn } from "../utils/cn";
 import { ChevronLeftIcon, LogoutIcon } from "../components/icons";
 import { useAuthStore } from "../store/authStore";
 import { useLogoutMutation } from "../features/auth/useAuthMutations";
+import { NotificationBell } from "../features/notifications/NotificationBell";
 import type { NavItem } from "./navConfig";
 
 export interface AppShellProps {
   /** Short label shown next to the logo mark, e.g. "ClinicOS Admin". */
   brandLabel: string;
   navItems: NavItem[];
+  /** Whether to show the in-app notification bell (clinic roles only). */
+  showNotifications?: boolean;
 }
 
 /** Shared sidebar + topbar chrome used by both SuperAdminLayout and ClinicLayout. */
-export function AppShell({ brandLabel, navItems }: AppShellProps) {
+export function AppShell({ brandLabel, navItems, showNotifications }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const user = useAuthStore((state) => state.user);
@@ -103,6 +106,7 @@ export function AppShell({ brandLabel, navItems }: AppShellProps) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 flex-shrink-0 items-center justify-end gap-4 border-b border-slate-200 bg-white px-6">
+          {showNotifications && <NotificationBell />}
           <div className="text-right">
             <p className="text-sm font-medium text-slate-800">{user?.fullName ?? "—"}</p>
             <p className="text-xs capitalize text-slate-400">

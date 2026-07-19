@@ -87,3 +87,16 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   manage any — enforced in the controller by matching the doctor's UserID to the caller.
 - The client resolves "my" doctor profile by matching the authenticated user's full name to
   DoctorName (they are kept in sync on staff create/update), avoiding an extra /doctors/me call.
+
+## Phase 6 — Notifications & Lab (billing/reports completed earlier)
+
+- **Billing and reports** were delivered in Phases 3–4 (invoices/payments/receipts, revenue
+  charts, CSV export); Phase 6 adds notifications and the lab module.
+- **In-app notifications** are a lightweight per-user table. `notify()` is fire-and-forget
+  (failures are swallowed so a notification write never breaks the triggering action). Events
+  wired up: appointment booked → treating doctor; patient checked in → treating doctor; lab
+  result recorded → ordering doctor. The client polls every 30s and marks all read on open.
+- **Lab module:** tests master (doctors/admins manage, all clinical roles read), orders
+  (doctors order; nurses/admins record results and update status). Recording a result upserts
+  the `LabResults` row, flips the order to `Completed`, and notifies the ordering doctor.
+  Receptionists have no lab access.

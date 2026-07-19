@@ -21,6 +21,8 @@ import vitalsRoutes from "./modules/vitals/vitals.routes.js";
 import prescriptionsRoutes from "./modules/prescriptions/prescriptions.routes.js";
 import medicinesRoutes from "./modules/medicines/medicines.module.js";
 import historyRoutes from "./modules/history/history.routes.js";
+import notificationsRoutes from "./modules/notifications/notifications.routes.js";
+import labRoutes from "./modules/lab/lab.routes.js";
 
 export function createApp() {
   const app = express();
@@ -63,6 +65,8 @@ export function createApp() {
   app.use("/api/v1/consultations", consultationsRoutes);
   app.use("/api/v1/prescriptions", prescriptionsRoutes);
   app.use("/api/v1/medicines", medicinesRoutes);
+  app.use("/api/v1/notifications", notificationsRoutes);
+  app.use("/api/v1/lab", labRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

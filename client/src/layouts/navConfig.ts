@@ -5,6 +5,7 @@ import {
   ChartIcon,
   ClipboardIcon,
   CreditCardIcon,
+  FlaskIcon,
   GridIcon,
   HistoryIcon,
   SettingsIcon,
@@ -46,6 +47,7 @@ export const clinicNavByRole: Record<
   DOCTOR: [
     { label: "My Day", to: "/app", icon: GridIcon, end: true },
     { label: "Patients", to: "/app/patients", icon: ClipboardIcon },
+    { label: "Lab", to: "/app/lab", icon: FlaskIcon },
     { label: "Schedule", to: "/app/schedule", icon: CalendarIcon },
   ],
   RECEPTIONIST: [
@@ -57,5 +59,6 @@ export const clinicNavByRole: Record<
   NURSE: [
     { label: "Today", to: "/app", icon: GridIcon, end: true },
     { label: "Vitals", to: "/app/vitals", icon: StethoscopeIcon },
+    { label: "Lab", to: "/app/lab", icon: FlaskIcon },
   ],
 };

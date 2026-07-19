@@ -74,6 +74,7 @@ afterAll(async () => {
   const pool = await getPool();
   for (const id of [A.clinicId, B.clinicId]) {
     await pool.request().input("id", sql.UniqueIdentifier, id).query(`
+      DELETE FROM Notifications WHERE ClinicID = @id;
       DELETE FROM Payments WHERE ClinicID = @id;
       DELETE FROM InvoiceItems WHERE InvoiceID IN (SELECT InvoiceID FROM Invoices WHERE ClinicID = @id);
       DELETE FROM Invoices WHERE ClinicID = @id;
