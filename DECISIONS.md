@@ -194,3 +194,18 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   live: a second appointment/consultation/prescription for one patient shows up correctly ordered
   in both the `GET /patients/:id/history` and `GET /prescriptions?patientId=` responses, and in
   the rendered UI (screenshots taken via Playwright against the dev server).
+
+- **Added support for hosted/managed SQL Server (not just local Docker).** `getPool()`
+  unconditionally called `ensureDatabaseExists()`, which connects to `master` and runs
+  `CREATE DATABASE` if missing — fine for a local `sa` login, but shared/managed SQL hosts
+  (SmarterASP.NET, Azure SQL, etc.) provision the database up front and the app's login typically
+  has no access to `master` at all, so every server start would fail. Added `DB_AUTO_CREATE_DATABASE`
+  (default `"true"`, so local Docker dev is unaffected); set to `"false"` for a hosted database and
+  `getPool()` connects straight to `DB_NAME` and skips the `master`/`CREATE DATABASE` step —
+  `npm run db:migrate` then builds the schema inside the already-provisioned database. Documented
+  the ADO.NET-connection-string → `DB_*` env var mapping in `server/.env.example` and a short
+  README section. Verified: full server suite (73 tests) still passes unchanged against local
+  Docker with the flag left at its default. Live connectivity to an actual hosted instance could
+  not be verified from this sandbox — outbound raw TCP to a non-standard external host times out
+  here (this environment's network policy routes HTTPS only), so this needs a real connectivity
+  check from the user's own machine or deployment target.

@@ -21,6 +21,10 @@ export const env = {
     database: required("DB_NAME", "clinicos"),
     encrypt: (process.env.DB_ENCRYPT ?? "false") === "true",
     trustServerCertificate: (process.env.DB_TRUST_SERVER_CERTIFICATE ?? "true") === "true",
+    // Local Docker dev connects as `sa` and can create the database itself. Hosted/managed SQL
+    // Server (shared hosting, Azure SQL, etc.) provisions the database up front and the app's
+    // login typically has no access to `master` at all — set this to "false" there.
+    autoCreateDatabase: (process.env.DB_AUTO_CREATE_DATABASE ?? "true") === "true",
   },
 
   jwt: {

@@ -30,6 +30,10 @@ The `clinicos` database does not need to exist beforehand — the migration runn
 
 **Note on the SA password**: SQL Server enforces a password policy at container startup — 8+ characters, from at least 3 of {uppercase, lowercase, digit, symbol}. Keep `server/.env`'s `DB_PASSWORD` in sync with whatever you pass to `MSSQL_SA_PASSWORD`.
 
+### Using a hosted SQL Server instead of Docker
+
+You don't need Docker at all if you already have a SQL Server instance somewhere (SmarterASP.NET, Azure SQL, another VM, etc.) — just point `server/.env` at it instead of `localhost`. Map the ADO.NET connection string your host gives you onto the `DB_*` vars; see the commented example in `server/.env.example`. The one thing to get right: set `DB_AUTO_CREATE_DATABASE=false`. Hosted plans provision the database for you up front, and the login they give you almost never has access to `master` — leaving auto-create on will make every server start fail trying to `CREATE DATABASE`. With it off, `npm run db:migrate` connects straight to the database named in `DB_NAME` and creates the schema there.
+
 ## 2. Configure environment variables
 
 ```bash
