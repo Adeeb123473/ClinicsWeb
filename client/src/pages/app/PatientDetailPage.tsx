@@ -8,7 +8,7 @@ import { Card } from "../../components/Card";
 import { Badge } from "../../components/Badge";
 import { CenterSpinner } from "../../components/Spinner";
 import { EmptyState } from "../../components/EmptyState";
-import { AlertIcon, StethoscopeIcon, HeartPulseIcon } from "../../components/icons";
+import { AlertIcon, StethoscopeIcon, HeartPulseIcon, PillIcon } from "../../components/icons";
 import { useAuthStore } from "../../store/authStore";
 import { formatDate, formatDateTime } from "../../utils/format";
 
@@ -69,6 +69,7 @@ function Timeline({ history }: { history?: Awaited<ReturnType<typeof clinicalApi
   if (!history) return null;
   const events = [
     ...history.consultations.map((c) => ({ type: "consult" as const, date: c.CreatedAt ?? "", data: c })),
+    ...history.prescriptions.map((rx) => ({ type: "prescription" as const, date: rx.createdAt, data: rx })),
     ...history.vitals.map((v) => ({ type: "vital" as const, date: v.recordedAt, data: v })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -84,8 +85,18 @@ function Timeline({ history }: { history?: Awaited<ReturnType<typeof clinicalApi
           transition={{ duration: 0.2, delay: i * 0.03 }}
           className="relative flex gap-4"
         >
-          <div className={`z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${e.type === "consult" ? "bg-primary-100 text-primary-700" : "bg-info-100 text-info-700"}`}>
-            {e.type === "consult" ? <StethoscopeIcon className="h-4 w-4" /> : <HeartPulseIcon className="h-4 w-4" />}
+          <div
+            className={`z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
+              e.type === "consult" ? "bg-primary-100 text-primary-700" : e.type === "prescription" ? "bg-warning-100 text-warning-700" : "bg-info-100 text-info-700"
+            }`}
+          >
+            {e.type === "consult" ? (
+              <StethoscopeIcon className="h-4 w-4" />
+            ) : e.type === "prescription" ? (
+              <PillIcon className="h-4 w-4" />
+            ) : (
+              <HeartPulseIcon className="h-4 w-4" />
+            )}
           </div>
           <div className="flex-1 rounded-xl border border-slate-100 p-3">
             <p className="text-xs text-slate-400">{formatDateTime(e.date)}</p>
@@ -93,6 +104,18 @@ function Timeline({ history }: { history?: Awaited<ReturnType<typeof clinicalApi
               <div className="mt-1">
                 <p className="font-medium text-slate-800">{e.data.Diagnosis ?? e.data.ChiefComplaint ?? "Consultation"}</p>
                 {e.data.DoctorName && <p className="text-xs text-slate-500">{e.data.DoctorName}</p>}
+              </div>
+            ) : e.type === "prescription" ? (
+              <div className="mt-1">
+                <p className="font-medium text-slate-800">Prescription · {e.data.doctorName}</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {e.data.items.map((it, idx) => (
+                    <Badge key={idx} tone="neutral">
+                      {it.medicineName}
+                      {it.dosage ? ` · ${it.dosage}` : ""}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="mt-1 flex flex-wrap gap-2 text-sm text-slate-600">

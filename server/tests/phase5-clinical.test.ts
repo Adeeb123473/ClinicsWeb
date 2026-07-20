@@ -195,14 +195,56 @@ describe("Phase 5 — prescriptions & templates", () => {
     const list = await request(app).get("/api/v1/prescriptions/templates").set("Authorization", `Bearer ${A.doctorToken}`);
     expect(list.body.data.some((t: { name: string }) => t.name === "Combo")).toBe(true);
   });
+
+  it("lets a doctor view a patient's full prescription history across consultations", async () => {
+    // A second appointment + consultation + prescription for the same patient (one consultation per
+    // appointment), so the listing spans multiple visits.
+    const pool = await getPool();
+    const secondAppt = await pool
+      .request()
+      .input("clinicId", sql.UniqueIdentifier, A.clinicId)
+      .input("patientId", sql.UniqueIdentifier, A.patientId)
+      .input("doctorId", sql.UniqueIdentifier, A.doctorId)
+      .query<{ AppointmentID: string }>(
+        `INSERT INTO Appointments (ClinicID, PatientID, DoctorID, AppointmentDate, AppointmentTime, TokenNo)
+         OUTPUT INSERTED.AppointmentID VALUES (@clinicId, @patientId, @doctorId, CAST(SYSUTCDATETIME() AS DATE), '10:00', 2)`,
+      );
+
+    const doc2 = await request(app)
+      .post("/api/v1/consultations")
+      .set("Authorization", `Bearer ${A.doctorToken}`)
+      .send({ appointmentId: secondAppt.recordset[0].AppointmentID, diagnosis: "Follow-up" });
+    await request(app)
+      .post("/api/v1/prescriptions")
+      .set("Authorization", `Bearer ${A.doctorToken}`)
+      .send({ consultationId: doc2.body.data.ConsultationID, items: [{ medicineName: "Cetirizine 10mg", frequency: "OD", durationDays: 3 }] });
+
+    const res = await request(app)
+      .get(`/api/v1/prescriptions?patientId=${A.patientId}`)
+      .set("Authorization", `Bearer ${A.doctorToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+    const medicines = res.body.data.flatMap((rx: { items: { medicineName: string }[] }) => rx.items.map((i) => i.medicineName));
+    expect(medicines).toContain("Paracetamol 500mg");
+    expect(medicines).toContain("Cetirizine 10mg");
+  });
+
+  it("blocks a receptionist from a patient's prescription history (403)", async () => {
+    const res = await request(app)
+      .get(`/api/v1/prescriptions?patientId=${A.patientId}`)
+      .set("Authorization", `Bearer ${A.receptionToken}`);
+    expect(res.status).toBe(403);
+  });
 });
 
 describe("Phase 5 — patient history & doctor schedule", () => {
-  it("returns a role-filtered patient history for a doctor", async () => {
+  it("returns a role-filtered patient history for a doctor, including prescriptions", async () => {
     const res = await request(app).get(`/api/v1/patients/${A.patientId}/history`).set("Authorization", `Bearer ${A.doctorToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data.patient.allergies).toBe("Penicillin");
     expect(Array.isArray(res.body.data.vitals)).toBe(true);
+    expect(Array.isArray(res.body.data.prescriptions)).toBe(true);
+    expect(res.body.data.prescriptions.length).toBeGreaterThanOrEqual(2);
   });
 
   it("blocks a receptionist from patient history (403)", async () => {

@@ -102,6 +102,83 @@ export async function savePrescription(
   }
 }
 
+export interface PatientPrescriptionRow {
+  PrescriptionID: string;
+  ConsultationID: string;
+  CreatedAt: Date;
+  Diagnosis: string | null;
+  ChiefComplaint: string | null;
+  DoctorName: string;
+}
+
+export interface PatientPrescription {
+  prescriptionId: string;
+  consultationId: string;
+  createdAt: Date;
+  diagnosis: string | null;
+  chiefComplaint: string | null;
+  doctorName: string;
+  items: PrescriptionItem[];
+}
+
+/** Every prescription ever written for a patient, newest first, across all their consultations. */
+export async function listPrescriptionsForPatient(clinicId: string, patientId: string): Promise<PatientPrescription[]> {
+  assertClinicId(clinicId);
+  const pool = await getPool();
+  const prescriptions = await pool
+    .request()
+    .input("clinicId", sql.UniqueIdentifier, clinicId)
+    .input("patientId", sql.UniqueIdentifier, patientId)
+    .query<PatientPrescriptionRow>(`
+      SELECT p.PrescriptionID, p.ConsultationID, p.CreatedAt, c.Diagnosis, c.ChiefComplaint, d.DoctorName
+      FROM Prescriptions p
+      JOIN Consultations c ON c.ConsultationID = p.ConsultationID
+      JOIN Doctors d ON d.DoctorID = c.DoctorID
+      WHERE p.ClinicID = @clinicId AND c.PatientID = @patientId AND p.IsDeleted = 0 AND c.IsDeleted = 0
+      ORDER BY p.CreatedAt DESC
+    `);
+  const rows = prescriptions.recordset;
+  if (rows.length === 0) return [];
+
+  const itemsRequest = pool.request();
+  const idParams = rows.map((r, i) => {
+    itemsRequest.input(`id${i}`, sql.UniqueIdentifier, r.PrescriptionID);
+    return `@id${i}`;
+  });
+  const items = await itemsRequest.query<{
+    PrescriptionID: string;
+    MedicineName: string;
+    Dosage: string | null;
+    Frequency: string | null;
+    DurationDays: number | null;
+    Instructions: string | null;
+  }>(`SELECT PrescriptionID, MedicineName, Dosage, Frequency, DurationDays, Instructions, SortOrder
+      FROM PrescriptionItems WHERE PrescriptionID IN (${idParams.join(", ")}) ORDER BY SortOrder`);
+
+  const itemsByPrescription = new Map<string, PrescriptionItem[]>();
+  for (const item of items.recordset) {
+    const list = itemsByPrescription.get(item.PrescriptionID) ?? [];
+    list.push({
+      medicineName: item.MedicineName,
+      dosage: item.Dosage,
+      frequency: item.Frequency,
+      durationDays: item.DurationDays,
+      instructions: item.Instructions,
+    });
+    itemsByPrescription.set(item.PrescriptionID, list);
+  }
+
+  return rows.map((r) => ({
+    prescriptionId: r.PrescriptionID,
+    consultationId: r.ConsultationID,
+    createdAt: r.CreatedAt,
+    diagnosis: r.Diagnosis,
+    chiefComplaint: r.ChiefComplaint,
+    doctorName: r.DoctorName,
+    items: itemsByPrescription.get(r.PrescriptionID) ?? [],
+  }));
+}
+
 // ---- Templates ----
 
 export interface TemplateRow {

@@ -44,6 +44,16 @@ export interface PrescriptionTemplate {
   items: PrescriptionItem[];
 }
 
+export interface PatientPrescription {
+  prescriptionId: string;
+  consultationId: string;
+  createdAt: string;
+  diagnosis: string | null;
+  chiefComplaint: string | null;
+  doctorName: string;
+  items: PrescriptionItem[];
+}
+
 export interface PatientHistory {
   patient: {
     patientId: string;
@@ -56,6 +66,7 @@ export interface PatientHistory {
     bloodGroup: string | null;
   };
   consultations: Consultation[];
+  prescriptions: PatientPrescription[];
   vitals: Vital[];
 }
 
@@ -68,6 +79,7 @@ export const clinicalApi = {
   updateConsultation: (id: string, body: Record<string, unknown>) => apiPatch<Consultation>(`/consultations/${id}`, body),
 
   getPrescription: (consultationId: string) => apiGet<{ prescriptionId: string; items: PrescriptionItem[] } | null>("/prescriptions", { consultationId }),
+  getPatientPrescriptions: (patientId: string) => apiGet<PatientPrescription[]>("/prescriptions", { patientId }),
   savePrescription: (consultationId: string, items: PrescriptionItem[]) => apiPost<{ items: PrescriptionItem[] }>("/prescriptions", { consultationId, items }),
   listTemplates: () => apiGet<PrescriptionTemplate[]>("/prescriptions/templates"),
   saveTemplate: (name: string, items: PrescriptionItem[]) => apiPost<PrescriptionTemplate>("/prescriptions/templates", { name, items }),

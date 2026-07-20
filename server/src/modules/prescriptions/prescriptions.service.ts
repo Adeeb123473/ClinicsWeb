@@ -1,10 +1,11 @@
 import { ApiError } from "../../utils/ApiError.js";
-import type { AccessTokenPayload } from "../../types/auth.js";
+import type { AccessTokenPayload, Role } from "../../types/auth.js";
 import { findDoctorByUserId } from "../doctors/doctors.repository.js";
 import { findConsultationByIdForClinic } from "../consultations/consultations.repository.js";
 import {
   getPrescriptionForConsultation,
   savePrescription,
+  listPrescriptionsForPatient,
   listTemplates,
   insertTemplate,
   deleteTemplate,
@@ -17,10 +18,23 @@ async function requireDoctor(authUser: AccessTokenPayload): Promise<string> {
   return doctor.DoctorID;
 }
 
+/** Prescriptions are clinical data: receptionists and the platform super admin never see them. */
+function assertClinical(role: Role): void {
+  if (role === "SUPER_ADMIN" || role === "RECEPTIONIST") {
+    throw ApiError.forbidden("You do not have permission to view prescriptions");
+  }
+}
+
 export async function getPrescription(clinicId: string, consultationId: string) {
   const consultation = await findConsultationByIdForClinic(clinicId, consultationId);
   if (!consultation) throw ApiError.notFound("Consultation not found");
   return getPrescriptionForConsultation(clinicId, consultationId);
+}
+
+/** Full prescription history for a patient, across every consultation, newest first. */
+export async function getPatientPrescriptions(authUser: AccessTokenPayload, patientId: string) {
+  assertClinical(authUser.role);
+  return listPrescriptionsForPatient(authUser.clinicId as string, patientId);
 }
 
 export async function upsertPrescription(

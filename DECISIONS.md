@@ -173,3 +173,24 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   client-side orchestration of two already-tested calls. The server's CNIC/mobile duplicate
   detection still runs (a truly duplicate walk-in is rejected with a 409, prompting the
   receptionist to search for the existing record instead of creating a second one).
+
+- **Fixed a real gap: a patient's full prescription history was write-only.** `POST /prescriptions`
+  worked (doctors could record a prescription against a consultation), but there was no way to
+  read a patient's prescriptions across all their past consultations — `prescriptions.repository.ts`
+  only supported a single-consultation lookup, and `patientHistory` (the `GET /patients/:id/history`
+  endpoint backing both the consultation screen and patient detail page) omitted prescriptions
+  entirely, despite CLAUDE.md explicitly listing "consultations, prescriptions, vitals, lab results"
+  as the required timeline. Added `listPrescriptionsForPatient` (joins `Prescriptions` →
+  `Consultations` → `Doctors`, batches the `PrescriptionItems` lookup in one query instead of N+1)
+  and wired it into three places: (1) `patientHistory`'s response now includes a `prescriptions`
+  array alongside `consultations`/`vitals`; (2) `GET /prescriptions` now also accepts a `patientId`
+  query param (mirroring the existing `consultations` route's `patientId`/`appointmentId` branch)
+  for a standalone prescription-history lookup; (3) both use the same RBAC as consultations —
+  CLINIC_ADMIN/DOCTOR/NURSE can read, RECEPTIONIST and SUPER_ADMIN are blocked (403), since
+  prescriptions are clinical data. Frontend: the consultation screen's sidebar gained a "Previous
+  prescriptions" card (medicine chips per past visit) so a doctor sees prior prescriptions while
+  writing a new one, and the patient detail page's Timeline component gained a third event type
+  (pill icon) merging prescriptions in chronologically with consultations and vitals. Verified
+  live: a second appointment/consultation/prescription for one patient shows up correctly ordered
+  in both the `GET /patients/:id/history` and `GET /prescriptions?patientId=` responses, and in
+  the rendered UI (screenshots taken via Playwright against the dev server).
