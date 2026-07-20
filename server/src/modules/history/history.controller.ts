@@ -5,9 +5,10 @@ import { ApiError } from "../../utils/ApiError.js";
 import { findPatientByIdForClinic } from "../patients/patients.repository.js";
 import { getPatientConsultations } from "../consultations/consultations.service.js";
 import { getPatientVitals } from "../vitals/vitals.service.js";
+import { getPatientPrescriptions } from "../prescriptions/prescriptions.service.js";
 
 /**
- * Role-filtered patient timeline: demographics + consultations + vitals.
+ * Role-filtered patient timeline: demographics + consultations + prescriptions + vitals.
  * Consultation notes are already summarised for nurses by the consultations service;
  * receptionists are blocked at the route.
  */
@@ -19,8 +20,9 @@ export const patientHistory = asyncHandler(async (req: Request, res: Response) =
   const patient = await findPatientByIdForClinic(clinicId, patientId);
   if (!patient) throw ApiError.notFound("Patient not found");
 
-  const [consultations, vitals] = await Promise.all([
+  const [consultations, prescriptions, vitals] = await Promise.all([
     getPatientConsultations(req.authUser, patientId),
+    getPatientPrescriptions(req.authUser, patientId),
     getPatientVitals(clinicId, patientId),
   ]);
 
@@ -36,6 +38,7 @@ export const patientHistory = asyncHandler(async (req: Request, res: Response) =
       bloodGroup: patient.BloodGroup,
     },
     consultations,
+    prescriptions,
     vitals,
   });
 });

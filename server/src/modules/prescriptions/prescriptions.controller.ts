@@ -7,8 +7,12 @@ import type { SavePrescriptionBody, SaveTemplateBody } from "./prescriptions.sch
 
 export const getForConsultation = asyncHandler(async (req: Request, res: Response) => {
   if (!req.authUser) throw ApiError.unauthorized();
-  const consultationId = req.query.consultationId as string | undefined;
-  if (!consultationId) throw ApiError.badRequest("consultationId is required");
+  const { consultationId, patientId } = req.query as { consultationId?: string; patientId?: string };
+  if (patientId) {
+    sendSuccess(res, await service.getPatientPrescriptions(req.authUser, patientId));
+    return;
+  }
+  if (!consultationId) throw ApiError.badRequest("consultationId or patientId is required");
   sendSuccess(res, await service.getPrescription(req.authUser.clinicId as string, consultationId));
 });
 

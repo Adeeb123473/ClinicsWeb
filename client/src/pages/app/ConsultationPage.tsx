@@ -231,6 +231,32 @@ function ConsultationEditor({
               </div>
             )}
           </Card>
+
+          <Card>
+            <h3 className="mb-2 text-sm font-semibold text-slate-800">Previous prescriptions</h3>
+            {(history?.prescriptions.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-400">No previous prescriptions</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {history!.prescriptions.slice(0, 6).map((rx) => (
+                  <div key={rx.prescriptionId} className="rounded-lg border border-slate-100 p-2 text-sm">
+                    <p className="text-xs text-slate-400">
+                      {formatDate(rx.createdAt)} · {rx.doctorName}
+                    </p>
+                    {rx.diagnosis && <p className="text-slate-700">{rx.diagnosis}</p>}
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {rx.items.map((it, i) => (
+                        <Badge key={i} tone="neutral">
+                          {it.medicineName}
+                          {it.dosage ? ` · ${it.dosage}` : ""}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
 
         <div className="flex flex-col gap-4 lg:col-span-2">
