@@ -27,10 +27,20 @@ import platformAdminRoutes from "./modules/platform/platform.routes.js";
 export function createApp() {
   const app = express();
 
+  // Render (and most PaaS hosts) put the app behind a reverse proxy; without this,
+  // express-rate-limit misreads every request as coming from the proxy's IP, and
+  // req.ip (used for login lockout / audit logs) would be wrong too.
+  app.set("trust proxy", 1);
+
   app.use(helmet());
   app.use(
     cors({
-      origin: env.clientOrigin,
+      origin: (origin, callback) => {
+        // No Origin header (server-to-server, curl, health checks) — allow. An
+        // unrecognised Origin just doesn't get the CORS headers (browsers then refuse to
+        // read the response) — no need to error the request itself.
+        callback(null, !origin || env.clientOrigins.includes(origin));
+      },
       credentials: true,
     }),
   );

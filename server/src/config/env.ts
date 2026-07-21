@@ -11,7 +11,10 @@ function required(name: string, fallback?: string): string {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: parseInt(process.env.PORT ?? "4000", 10),
-  clientOrigin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173",
+  // Comma-separated list so a production deploy can allow the hosted frontend's domain
+  // (and any preview/custom domains) without a code change — e.g.
+  // "https://clinicos.vercel.app,https://app.clinicos.io".
+  clientOrigins: (process.env.CLIENT_ORIGIN ?? "http://localhost:5173").split(",").map((o) => o.trim()),
 
   db: {
     host: required("DB_HOST", "localhost"),

@@ -12,7 +12,11 @@ const REFRESH_COOKIE = "refreshToken";
 const refreshCookieOptions = {
   httpOnly: true,
   secure: env.nodeEnv === "production",
-  sameSite: "lax" as const,
+  // In production the frontend and API are on different domains (e.g. a Vercel/Netlify
+  // frontend calling a Render API), so the refresh cookie must be sent cross-site —
+  // "none" requires "secure", which is already true in production. Locally both run on
+  // localhost, where "lax" works and avoids needing HTTPS in dev.
+  sameSite: (env.nodeEnv === "production" ? "none" : "lax") as "none" | "lax",
   path: "/api/v1/auth",
   maxAge: env.jwt.refreshExpiryMs,
 };

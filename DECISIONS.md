@@ -209,3 +209,40 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   not be verified from this sandbox — outbound raw TCP to a non-standard external host times out
   here (this environment's network policy routes HTTPS only), so this needs a real connectivity
   check from the user's own machine or deployment target.
+
+- **Prepared the `server` workspace for standalone hosting on Render.** Several things only
+  matter once the API and frontend live on different domains behind a real PaaS, and none of
+  them were exercised by local dev or the test suite:
+  - **Found and fixed a real deploy-breaking bug**: `tsc` only compiles `.ts` files, so the
+    `.sql` migration files were never copied into `dist/` — `npm run build && npm start` (what
+    Render actually runs) crashed on boot with `ENOENT: .../dist/db/migrations`. Local dev
+    (`tsx`, which runs `src/` directly) and the test suite (also against `src/`) never touched
+    the compiled output, so this was invisible until a real production-build boot was tried.
+    Fixed by adding a copy step to the `build` script (`fs.cpSync` via `node -e`, no new
+    dependency) — verified by rebuilding from a clean `dist/` and booting the compiled output.
+  - **Migrations now run automatically on every boot** (`index.ts` calls the already-idempotent
+    `runMigrations()` before `app.listen`), so a fresh deploy against an empty-but-provisioned
+    hosted database is self-sufficient — no separate migrate step needed on a host without shell
+    access. Seed data is deliberately *not* auto-run (it's a one-time, explicit `npm run
+    db:seed`) — auto-seeding would silently inject demo patients/clinics into whatever database
+    is configured, which is fine for a throwaway local DB but not something to do unprompted
+    against a real hosted one.
+  - **`app.set("trust proxy", 1)`**: Render sits in front of the app behind a reverse proxy;
+    without this, `express-rate-limit` and every `req.ip` read (login lockout tracking, audit
+    logs) would see the proxy's IP for every request instead of the real client's.
+  - **CORS now supports a whitelist** (`CLIENT_ORIGIN` is comma-separated) instead of a single
+    origin string, since a hosted deployment needs the deployed frontend's domain (and possibly
+    a preview/custom domain later) rather than just `localhost:5173`. An origin not on the list
+    simply doesn't get CORS headers back (silent browser-side block) rather than erroring the
+    request — avoids turning routine bot/scanner traffic with a random `Origin` header into
+    noisy 500s in the logs.
+  - **Refresh-token cookie is `SameSite=None` in production** (still `Lax` in dev). The frontend
+    and API will be on two different domains once both are hosted, and `Lax` cookies are not
+    sent on cross-site fetch/XHR — only `None` (which requires `Secure`, already true in
+    production) works there. Verified live: booted the compiled `dist/` build with
+    `NODE_ENV=production`, confirmed `/health`, an allowed-origin CORS preflight, a
+    disallowed-origin preflight (200, no CORS headers, no error), and a real login response's
+    `Set-Cookie: ...; Secure; SameSite=None`.
+  - Pinned `"engines": {"node": ">=20"}` in `server/package.json` itself (previously only on the
+    root package.json) so Render picks the right Node version when its Root Directory is set to
+    `server` rather than the repo root.
