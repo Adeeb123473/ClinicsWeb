@@ -246,3 +246,20 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   - Pinned `"engines": {"node": ">=20"}` in `server/package.json` itself (previously only on the
     root package.json) so Render picks the right Node version when its Root Directory is set to
     `server` rather than the repo root.
+
+- **Fixed the actual first Render build failure: missing devDependencies at build time.** The
+  live build log showed `tsc` running but failing on every file with `TS7016 Could not find a
+  declaration file for module 'express'` (and `TS2584 Cannot find name 'console'`, from a missing
+  `@types/node`) — classic symptom of `devDependencies` never being installed. Cause: Render
+  reuses the same env vars for both the build step and the running app, so the `NODE_ENV=production`
+  we told the user to set (needed at runtime) also makes `npm install` skip devDependencies during
+  the build — and `tsc`/`@types/*` are devDependencies, since nothing from them is needed once
+  `dist/` is compiled. Fixed by changing the Build Command to
+  `npm install --include=dev && npm run build`, which always installs devDependencies for that one
+  install regardless of `NODE_ENV`. Also added `render.yaml` at the repo root so this (plus root
+  directory, start command, health check path, and the non-secret env vars) is captured as code
+  instead of a set of dashboard fields someone has to remember/re-enter; secret values
+  (`DB_PASSWORD`, JWT secrets, etc.) are declared with `sync: false`/`generateValue: true` rather
+  than committed. The rest of that build log's errors (several `TS7006 implicitly has an 'any'
+  type` in repository files) were downstream fallout from the same missing-types root cause, not
+  real bugs — confirmed by a clean local `npm run build` throughout this work.

@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: clinicos-api
+    runtime: node
+    rootDir: server
+    # --include=dev overrides npm's default of skipping devDependencies when NODE_ENV=production
+    # is set (which it is, below) — tsc, @types/*, and everything else the build needs are
+    # devDependencies, since none of them are needed once dist/ is compiled.
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_AUTO_CREATE_DATABASE
+        value: "false"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "1433"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_ENCRYPT
+        value: "true"
+      - key: DB_TRUST_SERVER_CERTIFICATE
+        value: "true"
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: SUPER_ADMIN_USERNAME
+        value: superadmin
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: DEMO_USER_PASSWORD
+        sync: false
+      - key: CLIENT_ORIGIN
+        value: http://localhost:5173

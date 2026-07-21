@@ -92,16 +92,18 @@ npm run lint          # lint both workspaces
 
 ## Deploying the API to Render
 
-The `server` workspace is self-contained (its `package.json` lists every dependency directly, nothing is pulled from the monorepo root at runtime), so it can be pointed at as a standalone Render Web Service.
+The `server` workspace is self-contained (its `package.json` lists every dependency directly, nothing is pulled from the monorepo root at runtime), so it can be pointed at as a standalone Render Web Service. A `render.yaml` at the repo root captures these settings as code (Render picks it up automatically if you deploy via "New Blueprint Instance"); if you created the service manually instead, set these fields yourself in the dashboard under Settings:
 
 **Render service settings:**
 
 | Setting | Value |
 |---|---|
 | Root Directory | `server` |
-| Build Command | `npm install && npm run build` |
+| Build Command | `npm install --include=dev && npm run build` |
 | Start Command | `npm start` |
 | Health Check Path | `/health` |
+
+**Why `--include=dev`**: `tsc` and all the `@types/*` packages the build needs are `devDependencies` (nothing from them is needed once `dist/` is compiled). `NODE_ENV=production` being set — which it needs to be, for the running app — also makes `npm install` skip devDependencies by default during the *build* step, since Render uses the same env vars for both build and runtime. Without `--include=dev`, the build fails with `TS7016`/`TS2584` errors about `express`, `console`, etc. having no type declarations — that's this symptom exactly, not a real code problem.
 
 **Environment variables** (set these in the Render dashboard, not in a committed file):
 
