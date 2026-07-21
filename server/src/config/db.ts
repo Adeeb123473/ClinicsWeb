@@ -29,7 +29,9 @@ export async function getPool(): Promise<sql.ConnectionPool> {
   if (connecting) return connecting;
 
   connecting = (async () => {
-    await ensureDatabaseExists();
+    if (env.db.autoCreateDatabase) {
+      await ensureDatabaseExists();
+    }
     const newPool = new sql.ConnectionPool(poolConfig(env.db.database));
     await newPool.connect();
     pool = newPool;

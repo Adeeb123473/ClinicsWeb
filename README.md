@@ -30,6 +30,10 @@ The `clinicos` database does not need to exist beforehand — the migration runn
 
 **Note on the SA password**: SQL Server enforces a password policy at container startup — 8+ characters, from at least 3 of {uppercase, lowercase, digit, symbol}. Keep `server/.env`'s `DB_PASSWORD` in sync with whatever you pass to `MSSQL_SA_PASSWORD`.
 
+### Using a hosted SQL Server instead of Docker
+
+You don't need Docker at all if you already have a SQL Server instance somewhere (SmarterASP.NET, Azure SQL, another VM, etc.) — just point `server/.env` at it instead of `localhost`. Map the ADO.NET connection string your host gives you onto the `DB_*` vars; see the commented example in `server/.env.example`. The one thing to get right: set `DB_AUTO_CREATE_DATABASE=false`. Hosted plans provision the database for you up front, and the login they give you almost never has access to `master` — leaving auto-create on will make every server start fail trying to `CREATE DATABASE`. With it off, `npm run db:migrate` connects straight to the database named in `DB_NAME` and creates the schema there.
+
 ## 2. Configure environment variables
 
 ```bash
@@ -85,6 +89,53 @@ npm run test:client   # client component tests only
 npm run build         # type-check and build both workspaces
 npm run lint          # lint both workspaces
 ```
+
+## Deploying the API to Render
+
+The `server` workspace is self-contained (its `package.json` lists every dependency directly, nothing is pulled from the monorepo root at runtime), so it can be pointed at as a standalone Render Web Service.
+
+**Render service settings:**
+
+| Setting | Value |
+|---|---|
+| Root Directory | `server` |
+| Build Command | `npm install && npm run build` |
+| Start Command | `npm start` |
+| Health Check Path | `/health` |
+
+**Environment variables** (set these in the Render dashboard, not in a committed file):
+
+```
+NODE_ENV=production
+# PORT is injected by Render automatically — don't set it yourself.
+
+DB_HOST=<your SQL Server host, e.g. SQL1002.site4now.net>
+DB_PORT=1433
+DB_USER=<db login>
+DB_PASSWORD=<db password>
+DB_NAME=<database name>
+DB_ENCRYPT=true
+DB_TRUST_SERVER_CERTIFICATE=true
+DB_AUTO_CREATE_DATABASE=false   # hosted DBs are already provisioned; see "hosted SQL Server" above
+
+JWT_ACCESS_SECRET=<generate a new random 32+ char value — do not reuse the .env.example one>
+JWT_REFRESH_SECRET=<generate a new, different random 32+ char value>
+JWT_ACCESS_EXPIRY=15m
+JWT_REFRESH_EXPIRY=7d
+
+SUPER_ADMIN_USERNAME=superadmin
+SUPER_ADMIN_PASSWORD=<a real password, not ChangeMe123!>
+SUPER_ADMIN_EMAIL=<your email>
+DEMO_USER_PASSWORD=<only matters if you run the demo seed>
+
+CLIENT_ORIGIN=http://localhost:5173   # update once the frontend is hosted (comma-separate multiple origins)
+```
+
+**Schema setup is automatic:** the server runs pending migrations on every boot (idempotent — a no-op once the schema is current), so the first deploy creates all tables inside your already-provisioned hosted database with no separate migration step. Demo/seed data is **not** run automatically — if you want it, run `npm run db:seed` once yourself, either from Render's Shell tab (with the service's own env vars already in scope) or from your own machine with `server/.env` pointed at the hosted DB.
+
+**After deploying**, verify with `curl https://<your-service>.onrender.com/health` — it should return `{"success":true,"data":{"status":"ok"},...}`. From there, hand the live URL to the frontend build: set `VITE_API_URL=https://<your-service>.onrender.com/api/v1` wherever the client is hosted, and once you know the frontend's URL, update `CLIENT_ORIGIN` above to match it (the API rejects cross-origin requests from anything not in that list, and the auth refresh cookie is issued as `SameSite=None; Secure` in production specifically so it works across the two separate domains).
+
+Note: Render's free tier spins the service down after inactivity; the first request after a cold start takes a few extra seconds while it boots (including the migration check).
 
 ## Features by role
 
