@@ -139,6 +139,31 @@ CLIENT_ORIGIN=http://localhost:5173   # update once the frontend is hosted (comm
 
 Note: Render's free tier spins the service down after inactivity; the first request after a cold start takes a few extra seconds while it boots (including the migration check).
 
+## Deploying the client to Vercel
+
+The `client` workspace is a standard Vite + React SPA. `client/vercel.json` captures the build settings and — most importantly — a rewrite so client-side routes (`/app/patients/:id`, `/login`, `/admin`, etc.) don't 404 on a hard refresh or direct link: Vercel's static file server otherwise looks for a literal matching file/path for every request, and only `/` would exist as a real file (`index.html`); the rewrite sends every unmatched path to `index.html` so React Router can take over.
+
+**Vercel project settings:**
+
+| Setting | Value |
+|---|---|
+| Root Directory | `client` |
+| Framework Preset | Vite (auto-detected) |
+| Build Command | `npm run build` (from `client/vercel.json`) |
+| Output Directory | `dist` |
+
+**Environment variable** to set in the Vercel dashboard:
+
+```
+VITE_API_URL=https://clinicsweb.onrender.com/api/v1
+```
+
+Unlike Render, Vercel always installs `devDependencies` during the build step regardless of `NODE_ENV` — `typescript`, `@types/*`, `vite`, etc. are devDependencies here too, but there's no equivalent `--include=dev` gotcha to work around.
+
+**After deploying**, you'll have a URL like `https://<project>.vercel.app`. Two things to do with it:
+1. Visit it and confirm the login page loads and a request to `/api/v1/...` succeeds (open devtools → Network — a CORS or cookie failure shows up there immediately).
+2. Go back to the **Render** service's environment variables and update `CLIENT_ORIGIN` to that exact Vercel URL (no trailing slash). Until this is set, the API rejects the browser's requests as a disallowed CORS origin — the login page will load (static files don't need CORS) but every API call will fail. Render redeploys automatically when you change an env var, so this takes effect within a minute or two.
+
 ## Features by role
 
 - **Super Admin** (`/admin`): platform dashboard (aggregate-only), clinic approval/suspend, subscription-plan CRUD, plan assignment, platform audit log. Never sees patient/clinical data.

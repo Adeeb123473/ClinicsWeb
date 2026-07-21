@@ -263,3 +263,21 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   than committed. The rest of that build log's errors (several `TS7006 implicitly has an 'any'
   type` in repository files) were downstream fallout from the same missing-types root cause, not
   real bugs — confirmed by a clean local `npm run build` throughout this work.
+
+- **Prepared the `client` workspace for standalone hosting on Vercel**, once the API was
+  confirmed live at `https://clinicsweb.onrender.com`. Client code needed no changes — `VITE_API_URL`,
+  `withCredentials: true` on the axios instance, and a `.env.example` were all already in place
+  from earlier work. Added `client/vercel.json` with an explicit SPA rewrite (`/(.*) → /index.html`):
+  without it, Vercel's static file server 404s on a hard refresh of any client-side route
+  (`/app/patients/:id`, `/login`, etc.) since only `index.html` exists as a literal file — React
+  Router needs every unmatched path routed there so it can take over client-side. Also pinned
+  `engines.node` in `client/package.json`, matching the server. Unlike Render, Vercel always
+  installs `devDependencies` during its build step regardless of `NODE_ENV`, so the
+  `--include=dev` workaround needed for Render doesn't apply here. Documented in README that
+  after deploying, `CLIENT_ORIGIN` on the Render service must be updated to the resulting
+  `*.vercel.app` URL — until then the API's CORS whitelist (added earlier) rejects the deployed
+  frontend's requests even though the static site itself loads fine. Verified: clean client
+  build/lint/test locally; live end-to-end verification of the Render URL was not possible from
+  this sandbox — its network policy explicitly denies the CONNECT to `clinicsweb.onrender.com`
+  (confirmed via the proxy's own status endpoint, `recentRelayFailures: connect_rejected`), same
+  class of sandbox limitation as the earlier hosted-SQL-Server connectivity check.
