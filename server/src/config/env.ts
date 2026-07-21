@@ -14,7 +14,12 @@ export const env = {
   // Comma-separated list so a production deploy can allow the hosted frontend's domain
   // (and any preview/custom domains) without a code change — e.g.
   // "https://clinicos.vercel.app,https://app.clinicos.io".
-  clientOrigins: (process.env.CLIENT_ORIGIN ?? "http://localhost:5173").split(",").map((o) => o.trim()),
+  // Trailing slashes are stripped: a browser's Origin header never includes one (it's always
+  // scheme://host, no path), so "https://x.vercel.app/" from a pasted URL would otherwise never
+  // match and silently fail CORS.
+  clientOrigins: (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
+    .split(",")
+    .map((o) => o.trim().replace(/\/+$/, "")),
 
   db: {
     host: required("DB_HOST", "localhost"),
