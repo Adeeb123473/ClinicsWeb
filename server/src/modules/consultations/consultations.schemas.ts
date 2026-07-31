@@ -4,7 +4,7 @@ export const consultationSchema = z.object({
   appointmentId: z.string().uuid(),
   chiefComplaint: z.string().trim().max(1000).optional().nullable(),
   historyOfPresentIllness: z.string().trim().max(8000).optional().nullable(),
-  examinationNotes: z.string().trim().max(8000).optional().nullable(),
+  examinationNotes: z.string().trim().min(1, "Examination notes are required").max(8000),
   diagnosis: z.string().trim().max(1000).optional().nullable(),
   icd10Code: z.string().trim().max(20).optional().nullable(),
   treatmentPlan: z.string().trim().max(8000).optional().nullable(),

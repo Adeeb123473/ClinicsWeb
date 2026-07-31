@@ -352,3 +352,18 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   mobile, malformed CNIC) and acceptance paths — 76 tests passing, up from 74. Verified live via
   Playwright in both forms: typing a mixed string of letters and digits into CNIC/Mobile leaves
   only the digits, correctly dash-formatted and length-capped.
+
+- **Made examination notes the one required field on a consultation; everything else (chief
+  complaint, history of present illness, diagnosis, ICD-10, treatment plan, follow-up date, and
+  the prescription) stays optional.** `consultationSchema.examinationNotes` changed from
+  `optional().nullable()` to `min(1)` — a bare clinical record needs at least an exam finding to
+  mean anything, but a doctor should never be blocked from saving because, say, they haven't typed
+  a diagnosis yet. Client: the label reads "Examination notes (required)" (matching the existing
+  "(optional)" convention used elsewhere in the app rather than introducing a new asterisk
+  convention), and Save/Finish & print are disabled until it has content — consistent with how
+  every other form in this app gates its submit button, rather than showing a pre-emptive red
+  error before the doctor has typed anything. Two consultation-creation tests in the existing
+  suite sent no `examinationNotes` and had to be updated; added a new test asserting 400 without
+  it and 201 with only it filled (every other field omitted) — 77 server tests passing, up from
+  76. Verified live: Save/Finish are disabled on a fresh consultation screen, filling only
+  Examination Notes enables them, and the save succeeds with every other field left blank.

@@ -142,6 +142,38 @@ describe("Phase 5 — consultations RBAC", () => {
     expect(nurse.status).toBe(403);
   });
 
+  it("requires examination notes, but leaves every other clinical field optional (400 vs 201)", async () => {
+    // Distinct appointments — consultations upsert per-appointment, and A.appointmentId's
+    // consultation state is relied on by sibling tests in this block.
+    const pool = await getPool();
+    async function newAppointment(tokenNo: number): Promise<string> {
+      const r = await pool
+        .request()
+        .input("clinicId", sql.UniqueIdentifier, A.clinicId)
+        .input("patientId", sql.UniqueIdentifier, A.patientId)
+        .input("doctorId", sql.UniqueIdentifier, A.doctorId)
+        .input("tokenNo", sql.Int, tokenNo)
+        .query<{ AppointmentID: string }>(
+          `INSERT INTO Appointments (ClinicID, PatientID, DoctorID, AppointmentDate, AppointmentTime, TokenNo)
+           OUTPUT INSERTED.AppointmentID VALUES (@clinicId, @patientId, @doctorId, CAST(SYSUTCDATETIME() AS DATE), '11:00', @tokenNo)`,
+        );
+      return r.recordset[0].AppointmentID;
+    }
+
+    const missingExam = await request(app)
+      .post("/api/v1/consultations")
+      .set("Authorization", `Bearer ${A.doctorToken}`)
+      .send({ appointmentId: await newAppointment(97), chiefComplaint: "Cough", diagnosis: "Bronchitis" });
+    expect(missingExam.status).toBe(400);
+
+    const examOnly = await request(app)
+      .post("/api/v1/consultations")
+      .set("Authorization", `Bearer ${A.doctorToken}`)
+      .send({ appointmentId: await newAppointment(98), examinationNotes: "Chest clear, no wheeze" });
+    expect(examOnly.status).toBe(201);
+    expect(examOnly.body.data.ExaminationNotes).toBe("Chest clear, no wheeze");
+  });
+
   it("gives a nurse a summary-only view (no examination notes / treatment plan)", async () => {
     const res = await request(app).get(`/api/v1/consultations/${consultationId}`).set("Authorization", `Bearer ${A.nurseToken}`);
     expect(res.status).toBe(200);
@@ -163,7 +195,7 @@ describe("Phase 5 — prescriptions & templates", () => {
     const doc = await request(app)
       .post("/api/v1/consultations")
       .set("Authorization", `Bearer ${A.doctorToken}`)
-      .send({ appointmentId: A.appointmentId, diagnosis: "Rx test" });
+      .send({ appointmentId: A.appointmentId, examinationNotes: "Unremarkable", diagnosis: "Rx test" });
     consultationId = doc.body.data.ConsultationID;
   });
 
@@ -213,7 +245,7 @@ describe("Phase 5 — prescriptions & templates", () => {
     const doc2 = await request(app)
       .post("/api/v1/consultations")
       .set("Authorization", `Bearer ${A.doctorToken}`)
-      .send({ appointmentId: secondAppt.recordset[0].AppointmentID, diagnosis: "Follow-up" });
+      .send({ appointmentId: secondAppt.recordset[0].AppointmentID, examinationNotes: "Follow-up check, improving", diagnosis: "Follow-up" });
     await request(app)
       .post("/api/v1/prescriptions")
       .set("Authorization", `Bearer ${A.doctorToken}`)

@@ -167,10 +167,10 @@ function ConsultationEditor({
             <Button variant="secondary" onClick={printPrescription}>
               <PrintIcon className="h-4 w-4" /> Print Rx
             </Button>
-            <Button variant="secondary" isLoading={saving} onClick={handleSave}>
+            <Button variant="secondary" isLoading={saving} disabled={!form.examinationNotes.trim()} onClick={handleSave}>
               Save
             </Button>
-            <Button isLoading={saving} onClick={handleFinish}>
+            <Button isLoading={saving} disabled={!form.examinationNotes.trim()} onClick={handleFinish}>
               Finish &amp; print
             </Button>
           </div>
@@ -265,7 +265,11 @@ function ConsultationEditor({
             <div className="flex flex-col gap-4">
               <Textarea label="Chief complaint" value={form.chiefComplaint} onChange={(e) => set({ chiefComplaint: e.target.value })} />
               <Textarea label="History of present illness" value={form.historyOfPresentIllness} onChange={(e) => set({ historyOfPresentIllness: e.target.value })} />
-              <Textarea label="Examination notes" value={form.examinationNotes} onChange={(e) => set({ examinationNotes: e.target.value })} />
+              <Textarea
+                label="Examination notes (required)"
+                value={form.examinationNotes}
+                onChange={(e) => set({ examinationNotes: e.target.value })}
+              />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <Input label="Diagnosis" className="sm:col-span-2" value={form.diagnosis} onChange={(e) => set({ diagnosis: e.target.value })} />
                 <Input label="ICD-10" value={form.icd10Code} onChange={(e) => set({ icd10Code: e.target.value })} />
