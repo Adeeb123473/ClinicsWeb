@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cn } from "../utils/cn";
-import { ChevronLeftIcon, LogoutIcon, MenuIcon } from "../components/icons";
+import { ChevronLeftIcon, LogoutIcon, MenuIcon, XIcon } from "../components/icons";
 import { useAuthStore } from "../store/authStore";
 import { useLogoutMutation } from "../features/auth/useAuthMutations";
 import type { NavItem } from "./navConfig";
@@ -70,6 +70,17 @@ export function AppShell({ brandLabel, navItems }: AppShellProps) {
               </motion.span>
             )}
           </AnimatePresence>
+
+          {/* The topbar's hamburger sits under this drawer once it's open, so the drawer
+              needs its own visible close affordance rather than relying on that same button. */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+            className="ml-auto flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-700 lg:hidden"
+          >
+            <XIcon className="h-5 w-5" />
+          </button>
         </div>
 
         <motion.nav

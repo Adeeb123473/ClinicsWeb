@@ -304,3 +304,15 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   (tablet), and 1440px (desktop) for both a Clinic Admin and the Super Admin: no horizontal page
   overflow at any width, drawer opens/closes correctly and closes on nav-link click, desktop
   collapse toggle and layout pixel-identical to before.
+
+- **Added an explicit close (✕) button inside the mobile drawer itself**, next to the brand
+  label. The topbar's hamburger button occupies roughly the same top-left screen region the
+  drawer slides into, so once the drawer is open it visually sits on top of (and is drawn above)
+  that button — there's no way to "tap the hamburger again" to close it, only tap-outside
+  (backdrop) or follow a nav link. Rather than fighting z-index/stacking-context rules to keep the
+  original button reachable through the open drawer, added a dedicated close affordance inside the
+  drawer's own header — the conventional pattern for off-canvas mobile nav (hamburger to open, ✕
+  inside the panel to close, tap-outside also closes). Verified via Playwright: hamburger opens
+  the drawer, the new ✕ closes it, reopening and tapping the backdrop also closes it — all three
+  paths confirmed by checking the aside's actual on-screen bounding box, not just that a click
+  handler fired.
