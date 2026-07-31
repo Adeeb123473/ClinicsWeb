@@ -213,3 +213,11 @@ export const HeartPulseIcon = base(
     <path d="M13 13h3l1.5-2.5L20 15h1.5" />
   </>,
 );
+
+export const MenuIcon = base(
+  <>
+    <path d="M4 6h16" />
+    <path d="M4 12h16" />
+    <path d="M4 18h16" />
+  </>,
+);

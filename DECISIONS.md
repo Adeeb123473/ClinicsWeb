@@ -281,3 +281,26 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   this sandbox — its network policy explicitly denies the CONNECT to `clinicsweb.onrender.com`
   (confirmed via the proxy's own status endpoint, `recentRelayFailures: connect_rejected`), same
   class of sandbox limitation as the earlier hosted-SQL-Server connectivity check.
+
+- **Made the shared `AppShell` (sidebar + topbar chrome used by every dashboard) actually
+  responsive.** It was reported as "not responsive," and the real cause was the layout shell, not
+  any one dashboard page — the sidebar was a permanent flex item (76–248px depending on the
+  desktop collapse toggle) at every viewport width, so on a phone it just squeezed the content
+  column into a sliver rather than adapting. Fixed by making the sidebar `fixed` + off-canvas
+  (`-translate-x-full`) below the `lg` breakpoint with a dimmed backdrop and a hamburger toggle in
+  the topbar, while `lg:static lg:translate-x-0` restores the exact previous desktop behavior
+  unchanged (including the existing mini-sidebar collapse toggle, now hidden below `lg` since a
+  collapsed *and* off-canvas sidebar doesn't make sense together — the mobile drawer just opens at
+  full width). The drawer closes by clicking the backdrop or following a nav link (a direct
+  `onClick` on each `NavLink`, not a `useEffect` on the route — the project's eslint config flags
+  `setState` inside an effect body as a lint error, and closing on the action that caused the
+  navigation is the more direct fix anyway). Also trimmed the topbar's padding/gaps and hid the
+  "Log out" text label below `sm` (icon-only, with an `aria-label` so it stays accessible) since
+  every dashboard page's own grids (`sm:grid-cols-2 xl:grid-cols-4`, Recharts
+  `ResponsiveContainer`, the shared `Table` component's own `overflow-x-auto`) were already
+  responsive and just needed the shell around them to stop fighting them. Since `AppShell` is
+  shared by both `ClinicLayout` and `SuperAdminLayout`, this one change fixes every role's
+  dashboard (and every other page) at once. Verified live via Playwright at 375px (mobile), 820px
+  (tablet), and 1440px (desktop) for both a Clinic Admin and the Super Admin: no horizontal page
+  overflow at any width, drawer opens/closes correctly and closes on nav-link click, desktop
+  collapse toggle and layout pixel-identical to before.
