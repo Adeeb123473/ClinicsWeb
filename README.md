@@ -92,16 +92,18 @@ npm run lint          # lint both workspaces
 
 ## Deploying the API to Render
 
-The `server` workspace is self-contained (its `package.json` lists every dependency directly, nothing is pulled from the monorepo root at runtime), so it can be pointed at as a standalone Render Web Service.
+The `server` workspace is self-contained (its `package.json` lists every dependency directly, nothing is pulled from the monorepo root at runtime), so it can be pointed at as a standalone Render Web Service. A `render.yaml` at the repo root captures these settings as code (Render picks it up automatically if you deploy via "New Blueprint Instance"); if you created the service manually instead, set these fields yourself in the dashboard under Settings:
 
 **Render service settings:**
 
 | Setting | Value |
 |---|---|
 | Root Directory | `server` |
-| Build Command | `npm install && npm run build` |
+| Build Command | `npm install --include=dev && npm run build` |
 | Start Command | `npm start` |
 | Health Check Path | `/health` |
+
+**Why `--include=dev`**: `tsc` and all the `@types/*` packages the build needs are `devDependencies` (nothing from them is needed once `dist/` is compiled). `NODE_ENV=production` being set — which it needs to be, for the running app — also makes `npm install` skip devDependencies by default during the *build* step, since Render uses the same env vars for both build and runtime. Without `--include=dev`, the build fails with `TS7016`/`TS2584` errors about `express`, `console`, etc. having no type declarations — that's this symptom exactly, not a real code problem.
 
 **Environment variables** (set these in the Render dashboard, not in a committed file):
 
@@ -136,6 +138,31 @@ CLIENT_ORIGIN=http://localhost:5173   # update once the frontend is hosted (comm
 **After deploying**, verify with `curl https://<your-service>.onrender.com/health` — it should return `{"success":true,"data":{"status":"ok"},...}`. From there, hand the live URL to the frontend build: set `VITE_API_URL=https://<your-service>.onrender.com/api/v1` wherever the client is hosted, and once you know the frontend's URL, update `CLIENT_ORIGIN` above to match it (the API rejects cross-origin requests from anything not in that list, and the auth refresh cookie is issued as `SameSite=None; Secure` in production specifically so it works across the two separate domains).
 
 Note: Render's free tier spins the service down after inactivity; the first request after a cold start takes a few extra seconds while it boots (including the migration check).
+
+## Deploying the client to Vercel
+
+The `client` workspace is a standard Vite + React SPA. `client/vercel.json` captures the build settings and — most importantly — a rewrite so client-side routes (`/app/patients/:id`, `/login`, `/admin`, etc.) don't 404 on a hard refresh or direct link: Vercel's static file server otherwise looks for a literal matching file/path for every request, and only `/` would exist as a real file (`index.html`); the rewrite sends every unmatched path to `index.html` so React Router can take over.
+
+**Vercel project settings:**
+
+| Setting | Value |
+|---|---|
+| Root Directory | `client` |
+| Framework Preset | Vite (auto-detected) |
+| Build Command | `npm run build` (from `client/vercel.json`) |
+| Output Directory | `dist` |
+
+**Environment variable** to set in the Vercel dashboard:
+
+```
+VITE_API_URL=https://clinicsweb.onrender.com/api/v1
+```
+
+Unlike Render, Vercel always installs `devDependencies` during the build step regardless of `NODE_ENV` — `typescript`, `@types/*`, `vite`, etc. are devDependencies here too, but there's no equivalent `--include=dev` gotcha to work around.
+
+**After deploying**, you'll have a URL like `https://<project>.vercel.app`. Two things to do with it:
+1. Visit it and confirm the login page loads and a request to `/api/v1/...` succeeds (open devtools → Network — a CORS or cookie failure shows up there immediately).
+2. Go back to the **Render** service's environment variables and update `CLIENT_ORIGIN` to that exact Vercel URL (no trailing slash). Until this is set, the API rejects the browser's requests as a disallowed CORS origin — the login page will load (static files don't need CORS) but every API call will fail. Render redeploys automatically when you change an env var, so this takes effect within a minute or two.
 
 ## Features by role
 

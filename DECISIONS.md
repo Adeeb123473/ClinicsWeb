@@ -246,3 +246,73 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   - Pinned `"engines": {"node": ">=20"}` in `server/package.json` itself (previously only on the
     root package.json) so Render picks the right Node version when its Root Directory is set to
     `server` rather than the repo root.
+
+- **Fixed the actual first Render build failure: missing devDependencies at build time.** The
+  live build log showed `tsc` running but failing on every file with `TS7016 Could not find a
+  declaration file for module 'express'` (and `TS2584 Cannot find name 'console'`, from a missing
+  `@types/node`) — classic symptom of `devDependencies` never being installed. Cause: Render
+  reuses the same env vars for both the build step and the running app, so the `NODE_ENV=production`
+  we told the user to set (needed at runtime) also makes `npm install` skip devDependencies during
+  the build — and `tsc`/`@types/*` are devDependencies, since nothing from them is needed once
+  `dist/` is compiled. Fixed by changing the Build Command to
+  `npm install --include=dev && npm run build`, which always installs devDependencies for that one
+  install regardless of `NODE_ENV`. Also added `render.yaml` at the repo root so this (plus root
+  directory, start command, health check path, and the non-secret env vars) is captured as code
+  instead of a set of dashboard fields someone has to remember/re-enter; secret values
+  (`DB_PASSWORD`, JWT secrets, etc.) are declared with `sync: false`/`generateValue: true` rather
+  than committed. The rest of that build log's errors (several `TS7006 implicitly has an 'any'
+  type` in repository files) were downstream fallout from the same missing-types root cause, not
+  real bugs — confirmed by a clean local `npm run build` throughout this work.
+
+- **Prepared the `client` workspace for standalone hosting on Vercel**, once the API was
+  confirmed live at `https://clinicsweb.onrender.com`. Client code needed no changes — `VITE_API_URL`,
+  `withCredentials: true` on the axios instance, and a `.env.example` were all already in place
+  from earlier work. Added `client/vercel.json` with an explicit SPA rewrite (`/(.*) → /index.html`):
+  without it, Vercel's static file server 404s on a hard refresh of any client-side route
+  (`/app/patients/:id`, `/login`, etc.) since only `index.html` exists as a literal file — React
+  Router needs every unmatched path routed there so it can take over client-side. Also pinned
+  `engines.node` in `client/package.json`, matching the server. Unlike Render, Vercel always
+  installs `devDependencies` during its build step regardless of `NODE_ENV`, so the
+  `--include=dev` workaround needed for Render doesn't apply here. Documented in README that
+  after deploying, `CLIENT_ORIGIN` on the Render service must be updated to the resulting
+  `*.vercel.app` URL — until then the API's CORS whitelist (added earlier) rejects the deployed
+  frontend's requests even though the static site itself loads fine. Verified: clean client
+  build/lint/test locally; live end-to-end verification of the Render URL was not possible from
+  this sandbox — its network policy explicitly denies the CONNECT to `clinicsweb.onrender.com`
+  (confirmed via the proxy's own status endpoint, `recentRelayFailures: connect_rejected`), same
+  class of sandbox limitation as the earlier hosted-SQL-Server connectivity check.
+
+- **Made the shared `AppShell` (sidebar + topbar chrome used by every dashboard) actually
+  responsive.** It was reported as "not responsive," and the real cause was the layout shell, not
+  any one dashboard page — the sidebar was a permanent flex item (76–248px depending on the
+  desktop collapse toggle) at every viewport width, so on a phone it just squeezed the content
+  column into a sliver rather than adapting. Fixed by making the sidebar `fixed` + off-canvas
+  (`-translate-x-full`) below the `lg` breakpoint with a dimmed backdrop and a hamburger toggle in
+  the topbar, while `lg:static lg:translate-x-0` restores the exact previous desktop behavior
+  unchanged (including the existing mini-sidebar collapse toggle, now hidden below `lg` since a
+  collapsed *and* off-canvas sidebar doesn't make sense together — the mobile drawer just opens at
+  full width). The drawer closes by clicking the backdrop or following a nav link (a direct
+  `onClick` on each `NavLink`, not a `useEffect` on the route — the project's eslint config flags
+  `setState` inside an effect body as a lint error, and closing on the action that caused the
+  navigation is the more direct fix anyway). Also trimmed the topbar's padding/gaps and hid the
+  "Log out" text label below `sm` (icon-only, with an `aria-label` so it stays accessible) since
+  every dashboard page's own grids (`sm:grid-cols-2 xl:grid-cols-4`, Recharts
+  `ResponsiveContainer`, the shared `Table` component's own `overflow-x-auto`) were already
+  responsive and just needed the shell around them to stop fighting them. Since `AppShell` is
+  shared by both `ClinicLayout` and `SuperAdminLayout`, this one change fixes every role's
+  dashboard (and every other page) at once. Verified live via Playwright at 375px (mobile), 820px
+  (tablet), and 1440px (desktop) for both a Clinic Admin and the Super Admin: no horizontal page
+  overflow at any width, drawer opens/closes correctly and closes on nav-link click, desktop
+  collapse toggle and layout pixel-identical to before.
+
+- **Added an explicit close (✕) button inside the mobile drawer itself**, next to the brand
+  label. The topbar's hamburger button occupies roughly the same top-left screen region the
+  drawer slides into, so once the drawer is open it visually sits on top of (and is drawn above)
+  that button — there's no way to "tap the hamburger again" to close it, only tap-outside
+  (backdrop) or follow a nav link. Rather than fighting z-index/stacking-context rules to keep the
+  original button reachable through the open drawer, added a dedicated close affordance inside the
+  drawer's own header — the conventional pattern for off-canvas mobile nav (hamburger to open, ✕
+  inside the panel to close, tap-outside also closes). Verified via Playwright: hamburger opens
+  the drawer, the new ✕ closes it, reopening and tapping the backdrop also closes it — all three
+  paths confirmed by checking the aside's actual on-screen bounding box, not just that a click
+  handler fired.
