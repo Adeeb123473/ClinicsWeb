@@ -9,6 +9,7 @@ import { Textarea } from "../../components/Textarea";
 import { Badge } from "../../components/Badge";
 import { toast } from "../../store/toastStore";
 import { errorMessage } from "../../api/http";
+import { maskCnic, maskPhone } from "../../utils/inputMasks";
 
 interface FormState {
   patientName: string;
@@ -150,14 +151,19 @@ export function PatientFormModal({
           <Input
             label="Mobile"
             value={form.mobileNo}
-            onChange={(e) => set({ mobileNo: e.target.value })}
+            onChange={(e) => set({ mobileNo: maskPhone(e.target.value) })}
             onBlur={runDupCheck}
+            inputMode="numeric"
+            maxLength={11}
+            hint="11 digits, e.g. 03001234567"
           />
           <Input
             label="CNIC"
             value={form.cnic}
-            onChange={(e) => set({ cnic: e.target.value })}
+            onChange={(e) => set({ cnic: maskCnic(e.target.value) })}
             onBlur={runDupCheck}
+            inputMode="numeric"
+            maxLength={15}
             hint="Format 35202-1234567-1"
           />
           <Select
@@ -185,7 +191,13 @@ export function PatientFormModal({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="Emergency contact name" value={form.emergencyContactName} onChange={(e) => set({ emergencyContactName: e.target.value })} />
-          <Input label="Emergency contact phone" value={form.emergencyContactPhone} onChange={(e) => set({ emergencyContactPhone: e.target.value })} />
+          <Input
+            label="Emergency contact phone"
+            value={form.emergencyContactPhone}
+            onChange={(e) => set({ emergencyContactPhone: maskPhone(e.target.value) })}
+            inputMode="numeric"
+            maxLength={11}
+          />
         </div>
 
         <div className="flex items-center gap-2">

@@ -337,3 +337,18 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   (also covered by a new backend test asserting the stored value on read-back vs. `null` when
   omitted — 74 server tests passing, up from 73), and creating a doctor with both fee fields left
   blank succeeds without any validation blocking submission.
+
+- **Added live input masking for CNIC and phone fields on patient registration** (both the main
+  Register/Edit patient form and the walk-in quick-registration form inside the booking modal).
+  New `client/src/utils/inputMasks.ts` — `maskCnic` strips non-digits and inserts dashes at the
+  5/7/1 boundaries as the user types (capped at 13 digits total, e.g. `35202-1234567-1`);
+  `maskPhone` strips non-digits and caps at 11. Applied to Mobile, CNIC, and Emergency Contact
+  Phone in the main form, and Mobile/CNIC in the walk-in form, each with `inputMode="numeric"` for
+  a numeric mobile keypad and a `maxLength` matching the cap. Server-side, `mobileNo` was
+  previously `max(20)` with no character-set constraint at all (only `cnic` had a format regex) —
+  tightened to `^\d{1,11}$` (digits only, up to 11 — not exactly 11, since duplicate-detection
+  test fixtures generate variable-length numbers and a stricter exact-11 rule would have made
+  those tests occasionally flaky). Two new backend tests cover the rejection (letters, too-long
+  mobile, malformed CNIC) and acceptance paths — 76 tests passing, up from 74. Verified live via
+  Playwright in both forms: typing a mixed string of letters and digits into CNIC/Mobile leaves
+  only the digits, correctly dash-formatted and length-capped.
