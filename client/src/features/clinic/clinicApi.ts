@@ -66,6 +66,7 @@ export interface Appointment {
   tokenNo: number;
   status: string;
   remarks: string | null;
+  consultationFee: number | null;
   patientName: string;
   fatherHusbandName: string | null;
   gender: string;

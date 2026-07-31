@@ -21,6 +21,7 @@ export interface AppointmentDto {
   tokenNo: number;
   status: string;
   remarks: string | null;
+  consultationFee: number | null;
   patientName: string;
   fatherHusbandName: string | null;
   gender: string;
@@ -41,6 +42,7 @@ function toDto(row: AppointmentRow): AppointmentDto {
     tokenNo: row.TokenNo,
     status: row.Status,
     remarks: row.Remarks,
+    consultationFee: row.ConsultationFee !== null ? Number(row.ConsultationFee) : null,
     patientName: row.PatientName,
     fatherHusbandName: row.FatherHusbandName,
     gender: row.Gender,
@@ -71,6 +73,7 @@ export interface BookBody {
   time?: string;
   visitType: string;
   remarks?: string | null;
+  consultationFee?: number | null;
 }
 
 export async function bookAppointment(clinicId: string, createdBy: string, body: BookBody): Promise<AppointmentDto> {
@@ -94,6 +97,7 @@ export async function bookAppointment(clinicId: string, createdBy: string, body:
     time: body.time ?? new Date().toISOString().slice(11, 16),
     visitType: body.visitType,
     remarks: body.remarks ?? null,
+    consultationFee: body.consultationFee ?? null,
     createdBy,
   });
   return toDto(row);

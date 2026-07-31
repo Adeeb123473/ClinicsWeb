@@ -204,16 +204,20 @@ function CreateStaffModal({ onClose, onCreated }: { onClose: () => void; onCreat
               />
               <div className="grid grid-cols-3 gap-3">
                 <Input
-                  label="Consult fee"
+                  label="Consult fee (optional)"
                   type="number"
+                  placeholder="0"
                   value={form.consultationFee ?? ""}
-                  onChange={(e) => setForm({ ...form, consultationFee: Number(e.target.value) })}
+                  onChange={(e) => setForm({ ...form, consultationFee: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  hint="Defaults to 0"
                 />
                 <Input
-                  label="Follow-up fee"
+                  label="Follow-up fee (optional)"
                   type="number"
+                  placeholder="0"
                   value={form.followUpFee ?? ""}
-                  onChange={(e) => setForm({ ...form, followUpFee: Number(e.target.value) })}
+                  onChange={(e) => setForm({ ...form, followUpFee: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  hint="Defaults to 0"
                 />
                 <Input label="Room" value={form.roomNo ?? ""} onChange={(e) => setForm({ ...form, roomNo: e.target.value })} />
               </div>

@@ -316,3 +316,24 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   the drawer, the new ✕ closes it, reopening and tapping the backdrop also closes it — all three
   paths confirmed by checking the aside's actual on-screen bounding box, not just that a click
   handler fired.
+
+- **Made the consultation fee editable per-booking, and confirmed it was already optional at
+  doctor registration.** `Doctors.ConsultationFee` was only ever a per-doctor default with no way
+  to override it for one visit (e.g. a Deserving-category waiver, a negotiated discount) — and
+  appointments/invoices are two entirely separate flows here (invoices are free-form line items,
+  not derived from the appointment), so there was nowhere to even record a one-off fee. Added a
+  nullable `ConsultationFee` column on `Appointments` (migration 027; `NULL` = "use the doctor's
+  standard fee"), threaded through `bookSchema` → service → repository → the `AppointmentDto`.
+  `BookAppointmentModal` now shows an editable "Consultation fee" field that prefills from the
+  selected doctor's standard fee (using `followUpFee` specifically when the visit type is
+  `FollowUp`) whenever the doctor or visit type changes, and re-sends whatever value is in the
+  field at submit time — reception can freely override it before booking. Registration-time fee
+  optionality was in fact already correct server-side (`createStaffSchema`'s `consultationFee` was
+  always `z.number().min(0).optional()`, defaulting to 0) — the only real gap was cosmetic: the
+  client labels just said "Consult fee" / "Follow-up fee" with no indication they could be left
+  blank, unlike the neighboring Email/Phone fields which already said "(optional)". Fixed the
+  labels to match and added a "Defaults to 0" hint. Verified live via Playwright: selecting a
+  doctor prefills the fee from `Doctor.consultationFee`, editing and booking persists the override
+  (also covered by a new backend test asserting the stored value on read-back vs. `null` when
+  omitted — 74 server tests passing, up from 73), and creating a doctor with both fee fields left
+  blank succeeds without any validation blocking submission.
