@@ -169,6 +169,22 @@ describe("Phase 4 — appointments & queue", () => {
     expect(second.body.data.tokenNo).toBe(t1 + 1);
   });
 
+  it("lets reception override the consultation fee for a booking, defaulting to null when omitted", async () => {
+    const overridden = await request(app)
+      .post("/api/v1/appointments")
+      .set("Authorization", `Bearer ${A.receptionToken}`)
+      .send({ patientId, doctorId: A.doctorId, date: today, visitType: "Deserving", consultationFee: 0 });
+    expect(overridden.status).toBe(201);
+    expect(overridden.body.data.consultationFee).toBe(0);
+
+    const withoutOverride = await request(app)
+      .post("/api/v1/appointments")
+      .set("Authorization", `Bearer ${A.receptionToken}`)
+      .send({ patientId, doctorId: A.doctorId, date: today, visitType: "Private" });
+    expect(withoutOverride.status).toBe(201);
+    expect(withoutOverride.body.data.consultationFee).toBeNull();
+  });
+
   it("returns 404 when booking with another clinic's doctor (tenant isolation)", async () => {
     const res = await request(app)
       .post("/api/v1/appointments")

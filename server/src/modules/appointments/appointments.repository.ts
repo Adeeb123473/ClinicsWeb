@@ -13,6 +13,7 @@ export interface AppointmentRow {
   TokenNo: number;
   Status: string;
   Remarks: string | null;
+  ConsultationFee: number | null;
   PatientName: string;
   FatherHusbandName: string | null;
   Gender: string;
@@ -24,6 +25,7 @@ export interface AppointmentRow {
 const SELECT = `
   SELECT a.AppointmentID, a.ClinicID, a.PatientID, a.DoctorID, a.MRNo, a.AppointmentDate,
     CONVERT(varchar(5), a.AppointmentTime, 108) AS AppointmentTime, a.VisitType, a.TokenNo, a.Status, a.Remarks,
+    a.ConsultationFee,
     p.PatientName, p.FatherHusbandName, p.Gender, p.MobileNo,
     d.DoctorName, d.RoomNo
   FROM Appointments a
@@ -81,6 +83,7 @@ export interface BookInput {
   time: string;
   visitType: string;
   remarks: string | null;
+  consultationFee: number | null;
   createdBy: string;
 }
 
@@ -112,11 +115,12 @@ export async function insertAppointment(input: BookInput): Promise<AppointmentRo
       .input("visitType", sql.NVarChar, input.visitType)
       .input("tokenNo", sql.Int, tokenNo)
       .input("remarks", sql.NVarChar, input.remarks)
+      .input("consultationFee", sql.Decimal(10, 2), input.consultationFee)
       .input("createdBy", sql.UniqueIdentifier, input.createdBy)
       .query<{ AppointmentID: string }>(`
-        INSERT INTO Appointments (ClinicID, PatientID, DoctorID, MRNo, AppointmentDate, AppointmentTime, VisitType, TokenNo, Status, Remarks, CreatedBy)
+        INSERT INTO Appointments (ClinicID, PatientID, DoctorID, MRNo, AppointmentDate, AppointmentTime, VisitType, TokenNo, Status, Remarks, ConsultationFee, CreatedBy)
         OUTPUT INSERTED.AppointmentID
-        VALUES (@clinicId, @patientId, @doctorId, @mrNo, @date, @time, @visitType, @tokenNo, 'Scheduled', @remarks, @createdBy)
+        VALUES (@clinicId, @patientId, @doctorId, @mrNo, @date, @time, @visitType, @tokenNo, 'Scheduled', @remarks, @consultationFee, @createdBy)
       `);
     await transaction.commit();
     const created = await findAppointmentById(input.clinicId, result.recordset[0].AppointmentID);

@@ -7,6 +7,9 @@ export const bookSchema = z.object({
   time: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time").optional(),
   visitType: z.enum(["Deserving", "Private", "FollowUp", "Emergency", "Insurance"]).default("Private"),
   remarks: z.string().trim().max(500).optional().nullable(),
+  // Overrides the doctor's standard fee for this one visit (e.g. a discount, a Deserving
+  // waiver). Left unset, billing falls back to the doctor's default fee.
+  consultationFee: z.number().min(0).optional().nullable(),
 });
 
 export const queueQuerySchema = z.object({

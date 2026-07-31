@@ -48,8 +48,17 @@ export function BookAppointmentModal({
   const [time, setTime] = useState<string>("");
   const [visitType, setVisitType] = useState("Private");
   const [walkIn, setWalkIn] = useState(true);
+  const [consultationFee, setConsultationFee] = useState<number | "">("");
 
   const doctorsQuery = useQuery({ queryKey: ["doctors"], queryFn: clinicApi.listDoctors });
+
+  /** The doctor's standard fee for the currently selected visit type — used to prefill the
+      editable fee field whenever the doctor or visit type changes. */
+  const standardFee = (doctorId2: string, visitType2: string): number | "" => {
+    const doc = (doctorsQuery.data ?? []).find((d) => d.doctorId === doctorId2);
+    if (!doc) return "";
+    return visitType2 === "FollowUp" ? doc.followUpFee : doc.consultationFee;
+  };
   const searchQuery = useQuery({
     queryKey: ["patients", "book-search", search],
     queryFn: () => clinicApi.searchPatients(search, 1, 6),
@@ -91,6 +100,7 @@ export function BookAppointmentModal({
         date,
         time: walkIn ? undefined : time || undefined,
         visitType,
+        consultationFee: consultationFee === "" ? undefined : consultationFee,
       });
     },
     onSuccess: (a) => {
@@ -225,8 +235,10 @@ export function BookAppointmentModal({
           label="Doctor"
           value={doctorId}
           onChange={(e) => {
-            setDoctorId(e.target.value);
+            const id = e.target.value;
+            setDoctorId(id);
             setTime("");
+            setConsultationFee(standardFee(id, visitType));
           }}
           placeholder="Select a doctor"
           options={(doctorsQuery.data ?? []).map((d) => ({
@@ -283,7 +295,25 @@ export function BookAppointmentModal({
           </div>
         )}
 
-        <Select label="Visit type" value={visitType} onChange={(e) => setVisitType(e.target.value)} options={VISIT_TYPES} />
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label="Visit type"
+            value={visitType}
+            onChange={(e) => {
+              const type = e.target.value;
+              setVisitType(type);
+              setConsultationFee(standardFee(doctorId, type));
+            }}
+            options={VISIT_TYPES}
+          />
+          <Input
+            label="Consultation fee"
+            type="number"
+            value={consultationFee}
+            onChange={(e) => setConsultationFee(e.target.value === "" ? "" : Number(e.target.value))}
+            hint={doctorId ? "Prefilled from the doctor's standard fee — edit for this visit" : "Select a doctor first"}
+          />
+        </div>
         {visitType === "Deserving" && <Badge tone="warning">Deserving — fee can be waived at billing</Badge>}
       </div>
     </Modal>
