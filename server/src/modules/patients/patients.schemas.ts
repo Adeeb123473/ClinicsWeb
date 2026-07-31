@@ -12,7 +12,13 @@ export const patientSchema = z
     estimatedDOB: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").optional().nullable(),
     ageAtRegistration: z.number().int().min(0).max(200).optional().nullable(),
     ageUnit: z.enum(["Years", "Months", "Days"]).optional().nullable(),
-    mobileNo: z.string().trim().max(20).optional().nullable(),
+    mobileNo: z
+      .string()
+      .trim()
+      .regex(/^\d{1,11}$/, "Mobile number must be digits only, up to 11 digits")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     cnic: z
       .string()
       .trim()
@@ -32,7 +38,7 @@ export const patientSchema = z
     remarks: z.string().trim().max(1000).optional().nullable(),
     forceDuplicate: z.boolean().optional().default(false),
   })
-  .transform((v) => ({ ...v, cnic: v.cnic === "" ? null : v.cnic }));
+  .transform((v) => ({ ...v, cnic: v.cnic === "" ? null : v.cnic, mobileNo: v.mobileNo === "" ? null : v.mobileNo }));
 
 export const searchQuerySchema = z.object({
   q: z.string().trim().optional(),

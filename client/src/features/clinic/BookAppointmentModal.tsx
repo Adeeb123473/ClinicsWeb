@@ -10,6 +10,7 @@ import { SearchIcon } from "../../components/icons";
 import { toast } from "../../store/toastStore";
 import { errorMessage } from "../../api/http";
 import { cn } from "../../utils/cn";
+import { maskCnic, maskPhone } from "../../utils/inputMasks";
 
 const VISIT_TYPES = [
   { value: "Private", label: "Private" },
@@ -224,8 +225,21 @@ export function BookAppointmentModal({
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input label="Mobile (optional)" value={newPatient.mobileNo} onChange={(e) => setNewPatient({ ...newPatient, mobileNo: e.target.value })} />
-                <Input label="CNIC (optional)" value={newPatient.cnic} onChange={(e) => setNewPatient({ ...newPatient, cnic: e.target.value })} hint="35202-1234567-1" />
+                <Input
+                  label="Mobile (optional)"
+                  value={newPatient.mobileNo}
+                  onChange={(e) => setNewPatient({ ...newPatient, mobileNo: maskPhone(e.target.value) })}
+                  inputMode="numeric"
+                  maxLength={11}
+                />
+                <Input
+                  label="CNIC (optional)"
+                  value={newPatient.cnic}
+                  onChange={(e) => setNewPatient({ ...newPatient, cnic: maskCnic(e.target.value) })}
+                  inputMode="numeric"
+                  maxLength={15}
+                  hint="35202-1234567-1"
+                />
               </div>
             </div>
           </div>

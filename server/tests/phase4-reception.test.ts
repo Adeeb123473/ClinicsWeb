@@ -146,6 +146,23 @@ describe("Phase 4 — patient registration & search", () => {
       .send({ patientName: "No DOB", gender: "Male", category: "General" });
     expect(res.status).toBe(400);
   });
+
+  it("rejects a mobile number that isn't digits-only or is over 11 digits (400)", async () => {
+    const letters = await registerPatient(A, { mobileNo: "0300abc4567" });
+    expect(letters.status).toBe(400);
+
+    const tooLong = await registerPatient(A, { mobileNo: "030012345678" });
+    expect(tooLong.status).toBe(400);
+
+    const ok = await registerPatient(A, { mobileNo: "03001234567" });
+    expect(ok.status).toBe(201);
+    expect(ok.body.data.MobileNo).toBe("03001234567");
+  });
+
+  it("rejects a malformed CNIC (400)", async () => {
+    const res = await registerPatient(A, { cnic: "352029999991" });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("Phase 4 — appointments & queue", () => {
