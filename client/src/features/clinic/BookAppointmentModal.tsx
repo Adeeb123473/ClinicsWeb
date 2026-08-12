@@ -79,7 +79,7 @@ export function BookAppointmentModal({
   const mutation = useMutation({
     mutationFn: async () => {
       // A walk-in patient who hasn't been through the separate registration screen yet —
-      // register them inline (server still runs full CNIC/mobile duplicate detection) and
+      // register them inline (server still runs mobile-number duplicate detection) and
       // book the appointment for the newly created record in one step.
       const patientId =
         patientMode === "new"
