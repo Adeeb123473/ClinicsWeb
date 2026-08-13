@@ -85,24 +85,18 @@ export async function searchPatients(params: SearchParams): Promise<{ rows: Pati
   return { rows: rows.recordset, total: count.recordset[0].total };
 }
 
-/** Duplicate detection by exact CNIC or mobile within the clinic (CLAUDE.md reception rule). */
-export async function findDuplicates(
-  clinicId: string,
-  cnic: string | null,
-  mobile: string | null,
-): Promise<PatientRow[]> {
+/** Duplicate detection by exact mobile number within the clinic (CLAUDE.md reception rule). CNIC is not unique — the same CNIC may be registered for multiple patients. */
+export async function findDuplicates(clinicId: string, mobile: string | null): Promise<PatientRow[]> {
   assertClinicId(clinicId);
-  if (!cnic && !mobile) return [];
+  if (!mobile) return [];
   const pool = await getPool();
   const result = await pool
     .request()
     .input("clinicId", sql.UniqueIdentifier, clinicId)
-    .input("cnic", sql.NVarChar, cnic)
     .input("mobile", sql.NVarChar, mobile)
     .query<PatientRow>(`
       SELECT * FROM Patients
-      WHERE ClinicID = @clinicId AND IsDeleted = 0
-        AND ((@cnic IS NOT NULL AND CNIC = @cnic) OR (@mobile IS NOT NULL AND MobileNo = @mobile))
+      WHERE ClinicID = @clinicId AND IsDeleted = 0 AND MobileNo = @mobile
     `);
   return result.recordset;
 }

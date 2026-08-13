@@ -47,7 +47,6 @@ export const searchQuerySchema = z.object({
 });
 
 export const duplicateQuerySchema = z.object({
-  cnic: z.string().trim().optional(),
   mobile: z.string().trim().optional(),
 });
 

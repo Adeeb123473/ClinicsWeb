@@ -109,16 +109,26 @@ describe("Phase 4 — patient registration & search", () => {
     expect(res.body.data.currentAge.unit).toBe("Years");
   });
 
-  it("detects duplicate CNIC and blocks with 409, unless forced", async () => {
+  it("allows the same CNIC to be registered for multiple patients", async () => {
     const cnic = "35202-9999999-1";
     const first = await registerPatient(A, { cnic });
     expect(first.status).toBe(201);
 
-    const dup = await registerPatient(A, { cnic });
+    const second = await registerPatient(A, { cnic });
+    expect(second.status).toBe(201);
+    expect(second.body.data.PatientID).not.toBe(first.body.data.PatientID);
+  });
+
+  it("detects duplicate mobile number and blocks with 409, unless forced", async () => {
+    const mobileNo = `0301${Date.now() % 10000000}`;
+    const first = await registerPatient(A, { mobileNo });
+    expect(first.status).toBe(201);
+
+    const dup = await registerPatient(A, { mobileNo });
     expect(dup.status).toBe(409);
     expect(dup.body.error.code).toBe("DUPLICATE_PATIENT");
 
-    const forced = await registerPatient(A, { cnic, forceDuplicate: true });
+    const forced = await registerPatient(A, { mobileNo, forceDuplicate: true });
     expect(forced.status).toBe(201);
   });
 

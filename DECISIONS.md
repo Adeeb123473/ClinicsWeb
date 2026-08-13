@@ -367,3 +367,18 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   it and 201 with only it filled (every other field omitted) — 77 server tests passing, up from
   76. Verified live: Save/Finish are disabled on a fresh consultation screen, filling only
   Examination Notes enables them, and the save succeeds with every other field left blank.
+
+- **Removed CNIC from duplicate-patient detection at the user's explicit request** (CLAUDE.md's
+  reception spec calls for "duplicate detection by CNIC/mobile", but the clinic wants the same
+  CNIC registrable against multiple patient records — e.g. shared family CNICs, guardians
+  registering dependents). There was never a database-level unique constraint on CNIC (the
+  migration only ever created a non-unique index for search); the restriction was purely an
+  application-level check in `patients.service.ts` that returned 409 `DUPLICATE_PATIENT` and
+  required `forceDuplicate: true` to override. `findDuplicates` (repository), `checkDuplicates`
+  and `registerPatient` (service), the `/patients/duplicates` controller/schema, and the client
+  (`clinicApi.checkDuplicates`, `PatientFormModal`'s live warning banner) all dropped the `cnic`
+  parameter — duplicate detection and the "possible duplicate" warning now key on mobile number
+  only. CNIC format validation (`35202-1234567-1`) is untouched; only the duplicate-blocking
+  behavior changed. Updated the existing duplicate-CNIC test to assert 201 on a second
+  registration with the same CNIC instead of 409, and added a parallel duplicate-mobile test
+  covering the 409/forced-201 path that CNIC used to cover.
