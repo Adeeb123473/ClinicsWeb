@@ -20,8 +20,8 @@ export const listPatients = asyncHandler(async (req: Request, res: Response) => 
 
 export const checkDuplicates = asyncHandler(async (req: Request, res: Response) => {
   if (!req.authUser) throw ApiError.unauthorized();
-  const { mobile } = req.validatedQuery as DuplicateQuery;
-  const dupes = await patientsService.checkDuplicates(req.authUser.clinicId as string, mobile ?? null);
+  const { cnic, mobile } = req.validatedQuery as DuplicateQuery;
+  const dupes = await patientsService.checkDuplicates(req.authUser.clinicId as string, cnic ?? null, mobile ?? null);
   sendSuccess(res, dupes);
 });
 

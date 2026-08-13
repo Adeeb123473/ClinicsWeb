@@ -67,8 +67,8 @@ export async function listPatients(
   return { patients: rows.map((r) => withComputedAge(filterForRole(r, authUser.role))), total };
 }
 
-export async function checkDuplicates(clinicId: string, mobile: string | null) {
-  const rows = await findDuplicates(clinicId, mobile);
+export async function checkDuplicates(clinicId: string, cnic: string | null, mobile: string | null) {
+  const rows = await findDuplicates(clinicId, cnic, mobile);
   return rows.map((r) => ({
     patientId: r.PatientID,
     mrNo: r.MRNo,
@@ -76,7 +76,7 @@ export async function checkDuplicates(clinicId: string, mobile: string | null) {
     fatherHusbandName: r.FatherHusbandName,
     mobileNo: r.MobileNo,
     cnic: r.CNIC,
-    matchedOn: ["Mobile"],
+    matchedOn: [cnic && r.CNIC === cnic ? "CNIC" : null, mobile && r.MobileNo === mobile ? "Mobile" : null].filter(Boolean),
   }));
 }
 
@@ -124,7 +124,7 @@ export interface PatientRegistrationInput {
   insuranceProvider?: string | null;
   insurancePolicyNo?: string | null;
   remarks?: string | null;
-  /** When true, register even if a duplicate mobile number is found. */
+  /** When true, register even if a duplicate CNIC/mobile is found. */
   forceDuplicate?: boolean;
 }
 
@@ -134,10 +134,10 @@ export async function registerPatient(clinicId: string, createdBy: string, body:
   }
 
   if (!body.forceDuplicate) {
-    const dupes = await findDuplicates(clinicId, body.mobileNo ?? null);
+    const dupes = await findDuplicates(clinicId, body.cnic ?? null, body.mobileNo ?? null);
     if (dupes.length > 0) {
       throw ApiError.conflict(
-        `A patient with this mobile number already exists (${dupes[0].MRNo}).`,
+        `A patient with this ${body.cnic && dupes.some((d) => d.CNIC === body.cnic) ? "CNIC" : "mobile number"} already exists (${dupes[0].MRNo}).`,
         "DUPLICATE_PATIENT",
       );
     }

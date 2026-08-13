@@ -99,7 +99,7 @@ export interface Invoice extends InvoiceSummary {
 export const clinicApi = {
   searchPatients: (q: string, page = 1, limit = 20) => apiGetWithMeta<Patient[]>("/patients", { q: q || undefined, page, limit }),
   getPatient: (id: string) => apiGet<Patient>(`/patients/${id}`),
-  checkDuplicates: (mobile?: string) => apiGet<DuplicateMatch[]>("/patients/duplicates", { mobile }),
+  checkDuplicates: (cnic?: string, mobile?: string) => apiGet<DuplicateMatch[]>("/patients/duplicates", { cnic, mobile }),
   registerPatient: (body: Record<string, unknown>) => apiPost<Patient>("/patients", body),
   updatePatient: (id: string, body: Record<string, unknown>) => apiPatch<Patient>(`/patients/${id}`, body),
 

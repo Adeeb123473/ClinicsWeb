@@ -47,7 +47,7 @@ function toInitial(p?: Patient): FormState {
   };
 }
 
-/** Registration + edit form with live mobile-number duplicate detection (reception rule). CNIC may repeat across patients. */
+/** Registration + edit form with live CNIC/mobile duplicate detection (reception rule). */
 export function PatientFormModal({
   patient,
   clinical,
@@ -69,9 +69,9 @@ export function PatientFormModal({
 
   const runDupCheck = async () => {
     if (isEdit) return;
-    if (!form.mobileNo) return;
+    if (!form.cnic && !form.mobileNo) return;
     try {
-      const matches = await clinicApi.checkDuplicates(form.mobileNo || undefined);
+      const matches = await clinicApi.checkDuplicates(form.cnic || undefined, form.mobileNo || undefined);
       setDupes(matches);
     } catch {
       /* non-blocking */
