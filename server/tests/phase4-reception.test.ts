@@ -132,6 +132,34 @@ describe("Phase 4 — patient registration & search", () => {
     expect(forced.status).toBe(201);
   });
 
+  it("fails cleanly (not 500) when the clinic already has an un-substitutable MR No format", async () => {
+    // Simulates a clinic whose Settings blob was saved before the format was validated: the
+    // literal has no {YYYY}/{seq}, so every patient would compute the same MRNo and collide on
+    // UQ_Patients_Clinic_MRNo. Written straight to the DB to bypass the settings validation.
+    const pool = await getPool();
+    const setFormat = (json: string | null) =>
+      pool
+        .request()
+        .input("id", sql.UniqueIdentifier, A.clinicId)
+        .input("settings", sql.NVarChar, json)
+        .query(`UPDATE Clinics SET Settings = @settings WHERE ClinicID = @id`);
+
+    await setFormat('{"mrNoFormat":"MR-{2026}-{001}"}');
+    try {
+      const res = await registerPatient(A, { mobileNo: `0399${Date.now() % 10000000}` });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("MR_FORMAT_INVALID");
+      expect(res.status).not.toBe(500);
+    } finally {
+      await setFormat(null);
+    }
+
+    // And the clinic works again once the format is valid.
+    const ok = await registerPatient(A, { mobileNo: `0398${Date.now() % 10000000}` });
+    expect(ok.status).toBe(201);
+    expect(ok.body.data.MRNo).toMatch(/^MR-\d{4}-\d{4}$/);
+  });
+
   it("omits clinical fields for a receptionist searching patients", async () => {
     await registerPatient(A, { allergies: "Penicillin", chronicConditions: "Diabetes", bloodGroup: "O+" });
     const res = await request(app).get("/api/v1/patients?q=Reg").set("Authorization", `Bearer ${A.receptionToken}`);

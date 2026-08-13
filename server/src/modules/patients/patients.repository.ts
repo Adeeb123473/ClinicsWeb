@@ -1,5 +1,6 @@
 import { getPool, sql } from "../../config/db.js";
 import { assertClinicId } from "../../middleware/tenantScope.js";
+import { ApiError } from "../../utils/ApiError.js";
 
 export interface PatientRow {
   PatientID: string;
@@ -123,12 +124,63 @@ export interface PatientWriteFields {
   remarks: string | null;
 }
 
+/** SQL Server duplicate-key error numbers (unique index / unique constraint). */
+const SQL_UNIQUE_VIOLATION = new Set([2601, 2627]);
+
+function isMrNoCollision(err: unknown): boolean {
+  const e = err as { number?: number; message?: string } | null;
+  return (
+    SQL_UNIQUE_VIOLATION.has(e?.number ?? -1) && (e?.message ?? "").includes("UQ_Patients_Clinic_MRNo")
+  );
+}
+
 /**
- * Inserts a patient, generating a per-clinic MR number in a transaction.
- * The MR sequence is derived from the current max for the clinic in the target year,
- * and the (ClinicID, MRNo) unique constraint guards against races (caller retries).
+ * Builds the MR number for a clinic. Both placeholders are load-bearing: `{seq}` is what makes
+ * the number unique, and `{YYYY}` is what lets the sequence query above scope to the current
+ * year. A format missing either produces the *same* MR number for every patient in the clinic —
+ * the first insert succeeds and every later one dies on UQ_Patients_Clinic_MRNo. Fail with an
+ * actionable error rather than letting a raw driver error surface as a 500.
+ */
+export function buildMrNo(mrFormat: string, year: number, seq: number): string {
+  if (!mrFormat.includes("{YYYY}") || !mrFormat.includes("{seq}")) {
+    throw ApiError.badRequest(
+      `This clinic's MR No format (${mrFormat}) is missing the {YYYY} and/or {seq} placeholder, so it cannot generate unique MR numbers. A clinic admin can correct it in Clinic Settings (e.g. MR-{YYYY}-{seq}).`,
+      "MR_FORMAT_INVALID",
+    );
+  }
+  return mrFormat.replace("{YYYY}", String(year)).replace("{seq}", String(seq).padStart(4, "0"));
+}
+
+const MAX_MR_ATTEMPTS = 3;
+
+/**
+ * Inserts a patient, generating a per-clinic MR number in a transaction. The MR sequence is
+ * derived from the current max for the clinic in the target year, and the (ClinicID, MRNo)
+ * unique constraint is the backstop — a genuine race is retried here rather than 500ing.
  */
 export async function insertPatient(
+  clinicId: string,
+  createdBy: string,
+  mrFormat: string,
+  fields: PatientWriteFields,
+): Promise<PatientRow> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await insertPatientOnce(clinicId, createdBy, mrFormat, fields);
+    } catch (err) {
+      if (isMrNoCollision(err) && attempt < MAX_MR_ATTEMPTS) continue;
+      if (isMrNoCollision(err)) {
+        throw ApiError.conflict(
+          "Could not allocate a unique MR number for this patient. Please try again.",
+          "MR_NO_COLLISION",
+        );
+      }
+      throw err;
+    }
+  }
+}
+
+async function insertPatientOnce(
   clinicId: string,
   createdBy: string,
   mrFormat: string,
@@ -151,7 +203,7 @@ export async function insertPatient(
         WHERE ClinicID = @clinicId AND MRNo LIKE @yearPrefix
       `);
     const seq = (seqResult.recordset[0].MaxSeq ?? 0) + 1;
-    const mrNo = mrFormat.replace("{YYYY}", String(year)).replace("{seq}", String(seq).padStart(4, "0"));
+    const mrNo = buildMrNo(mrFormat, year, seq);
 
     const result = await new sql.Request(transaction)
       .input("clinicId", sql.UniqueIdentifier, clinicId)

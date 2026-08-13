@@ -399,5 +399,24 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   unhandled driver error, surfacing as a raw 500. Reproduced locally end-to-end (save the broken
   format via `PUT /clinic-settings` → 200; register two patients with *different* CNICs and
   *different* mobiles → 201 then 500) with a server-side error byte-identical to the production
-  log. Not fixed here — it is independent of the CNIC change and needs its own fix (validate the
-  placeholders on save, and fail with a clean `ApiError` instead of relying on the DB).
+  log. Not fixed in that commit — it is independent of the CNIC change.
+
+- **Fixed the `mrNoFormat` bug above, in two layers.** (1) *Prevent*: `updateSettingsSchema`'s
+  `mrNoFormat` now `.refine()`s that both `{YYYY}` and `{seq}` are present, so a pre-filled
+  literal can no longer be saved (400 with an explanatory message). Both placeholders are
+  load-bearing — `{seq}` is what makes the number unique, and `{YYYY}` is what lets the
+  sequence query scope to the current year via `MRNo LIKE '%<year>%'`; a format missing either
+  yields the same MRNo for every patient. (2) *Fail safe*: clinics that already stored a broken
+  format predate the validation, so `buildMrNo()` in `patients.repository.ts` re-checks the
+  invariant at generation time and throws `ApiError.badRequest(..., "MR_FORMAT_INVALID")` naming
+  the offending format and pointing at Clinic Settings — a clean, actionable 400 instead of a
+  raw driver 500, and it fails *before* the insert rather than writing one poisoned MR number.
+  Also made good on the existing "caller retries" comment that was never true: `insertPatient`
+  now retries up to 3 times on a genuine `UQ_Patients_Clinic_MRNo` race (SQL errors 2601/2627)
+  and converts an exhausted retry into a 409 `MR_NO_COLLISION` rather than a 500.
+  Two new tests (80 total, up from 78): settings rejects `MR-{2026}-{001}` / `MR-{YYYY}-001` /
+  `MR-{seq}` and accepts `MR-{YYYY}-{seq}`; and a clinic with a broken format written straight
+  to the DB (bypassing validation) gets 400 `MR_FORMAT_INVALID`, then registers normally once
+  the format is valid. Verified live against SQL Server: saving the broken format is rejected,
+  a clinic with it already stored returns clean 400s for every attempt with zero
+  `UNIQUE KEY` errors in the server log, and normal registration is unaffected.

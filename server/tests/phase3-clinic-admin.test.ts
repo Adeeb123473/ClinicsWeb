@@ -165,6 +165,29 @@ describe("Phase 3 — clinic settings RBAC", () => {
     expect(update.body.data.settings.taxPercent).toBe(5);
   });
 
+  it("rejects an MR No format missing the {YYYY}/{seq} placeholders (400)", async () => {
+    const read = await request(app).get("/api/v1/clinic-settings").set("Authorization", `Bearer ${A.adminToken}`);
+    const save = (mrNoFormat: string) =>
+      request(app)
+        .put("/api/v1/clinic-settings")
+        .set("Authorization", `Bearer ${A.adminToken}`)
+        .send({
+          clinicName: read.body.data.clinicName,
+          timeZone: "Asia/Karachi",
+          operatingHours: read.body.data.operatingHours,
+          settings: { mrNoFormat },
+        });
+
+    // A hand-filled literal would give every patient in the clinic the same MR number.
+    expect((await save("MR-{2026}-{001}")).status).toBe(400);
+    // Missing {seq} entirely — same problem.
+    expect((await save("MR-{YYYY}-001")).status).toBe(400);
+    // Missing {YYYY} breaks the per-year sequence scoping.
+    expect((await save("MR-{seq}")).status).toBe(400);
+    // The valid form still saves.
+    expect((await save("MR-{YYYY}-{seq}")).status).toBe(200);
+  });
+
   it("lets a RECEPTIONIST read settings but not update them (403)", async () => {
     const read = await request(app).get("/api/v1/clinic-settings").set("Authorization", `Bearer ${A.receptionToken}`);
     expect(read.status).toBe(200);
