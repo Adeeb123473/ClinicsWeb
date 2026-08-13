@@ -382,3 +382,22 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   behavior changed. Updated the existing duplicate-CNIC test to assert 201 on a second
   registration with the same CNIC instead of 409, and added a parallel duplicate-mobile test
   covering the 409/forced-201 path that CNIC used to cover.
+
+  **Verified against a real SQL Server** (2022 in Docker, migrations + seed applied) rather than
+  by static reading: 78 server tests and 3 client tests pass, and a 16-step end-to-end pass over
+  the live API confirms two patients sharing one CNIC both register (201, distinct MR numbers),
+  both get appointments and tokens, and search / detail / edit / queue / check-in / billing /
+  payment / consultation / dashboard / CSV export all behave normally afterwards.
+
+- **Found a pre-existing bug unrelated to CNIC: an un-substitutable `mrNoFormat` breaks all
+  registration after the first for that clinic.** `insertPatient` builds the MR number with
+  `mrFormat.replace("{YYYY}", ...).replace("{seq}", ...)`, which is a no-op unless the stored
+  format literally contains those placeholders. `updateSettingsSchema` validates `mrNoFormat`
+  only as `z.string().trim().min(1).max(50)`, so a value like `MR-{2026}-{001}` (already
+  "filled in" by hand) saves fine — then every patient for that clinic computes the *same* MRNo:
+  the first insert succeeds and every later one dies on `UQ_Patients_Clinic_MRNo` as an
+  unhandled driver error, surfacing as a raw 500. Reproduced locally end-to-end (save the broken
+  format via `PUT /clinic-settings` → 200; register two patients with *different* CNICs and
+  *different* mobiles → 201 then 500) with a server-side error byte-identical to the production
+  log. Not fixed here — it is independent of the CNIC change and needs its own fix (validate the
+  placeholders on save, and fail with a clean `ApiError` instead of relying on the DB).
