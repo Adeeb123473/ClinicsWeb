@@ -53,8 +53,10 @@ export interface ClinicSettings {
     tokenResetDaily: boolean;
     taxPercent: number;
     currency: string;
-    prescriptionHeader: string;
-    prescriptionFooter: string;
+    billingHeader: string;
+    billingFooter: string;
+    tokenHeader: string;
+    tokenFooter: string;
     invoicePrefix: string;
   };
 }

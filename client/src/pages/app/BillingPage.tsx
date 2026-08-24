@@ -20,6 +20,7 @@ import { PlanUpgradeNotice } from "../../components/PlanUpgradeNotice";
 import { toast } from "../../store/toastStore";
 import { errorMessage, errorCode } from "../../api/http";
 import { formatCurrency, formatDate } from "../../utils/format";
+import { clinicAdminApi } from "../../features/clinicAdmin/clinicAdminApi";
 import { printHtml, receiptHtml } from "../../utils/print";
 
 const statusTone: Record<string, "success" | "warning" | "danger" | "neutral"> = {
@@ -36,12 +37,18 @@ export function BillingPage() {
 
   const { data: invoices, isLoading, isError, error } = useQuery({ queryKey: ["invoices"], queryFn: () => clinicApi.listInvoices() });
 
+  // Any clinic role may read settings, which is where the receipt's header/footer and the
+  // clinic's own name come from.
+  const { data: clinic } = useQuery({ queryKey: ["clinic-settings"], queryFn: clinicAdminApi.getSettings });
+
   const printReceipt = async (inv: InvoiceSummary) => {
     const full = await clinicApi.getInvoice(inv.invoiceId);
     printHtml(
       `Receipt ${full.invoiceNo}`,
       receiptHtml({
-        clinicName: "ClinicOS",
+        clinicName: clinic?.clinicName ?? "",
+        header: clinic?.settings.billingHeader,
+        footer: clinic?.settings.billingFooter,
         invoiceNo: full.invoiceNo,
         patientName: full.patientName,
         mrNo: full.mrNo,
@@ -53,7 +60,7 @@ export function BillingPage() {
         total: full.total,
         paidAmount: full.paidAmount,
         status: full.status,
-        currency: "Rs",
+        currency: clinic?.settings.currency ?? "Rs",
       }),
     );
   };

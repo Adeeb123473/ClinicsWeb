@@ -133,21 +133,53 @@ function SettingsForm({ initial }: { initial: ClinicSettings }) {
         </Card>
 
         <Card>
-          <h3 className="mb-4 text-sm font-semibold text-slate-800">Prescription print template</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Receipt print template</h3>
+          <p className="mb-4 mt-1 text-xs text-slate-500">
+            Printed above and below billing receipts, under the clinic name.
+          </p>
           <div className="flex flex-col gap-4">
             <Textarea
               label="Header"
-              value={form.settings.prescriptionHeader}
-              onChange={(e) => setSetting({ prescriptionHeader: e.target.value })}
-              placeholder="Clinic name, address, phone — printed at the top of prescriptions"
+              value={form.settings.billingHeader}
+              onChange={(e) => setSetting({ billingHeader: e.target.value })}
+              placeholder="e.g. address and phone number"
             />
             <Textarea
               label="Footer"
-              value={form.settings.prescriptionFooter}
-              onChange={(e) => setSetting({ prescriptionFooter: e.target.value })}
-              placeholder="e.g. Timings, emergency contact, disclaimers"
+              value={form.settings.billingFooter}
+              onChange={(e) => setSetting({ billingFooter: e.target.value })}
+              placeholder="e.g. Thank you for your visit · refund policy"
             />
           </div>
+        </Card>
+
+        <Card>
+          <h3 className="text-sm font-semibold text-slate-800">Token slip print template</h3>
+          <p className="mb-4 mt-1 text-xs text-slate-500">
+            Printed above and below queue token slips, under the clinic name.
+          </p>
+          <div className="flex flex-col gap-4">
+            <Textarea
+              label="Header"
+              value={form.settings.tokenHeader}
+              onChange={(e) => setSetting({ tokenHeader: e.target.value })}
+              placeholder="e.g. address and phone number"
+            />
+            <Textarea
+              label="Footer"
+              value={form.settings.tokenFooter}
+              onChange={(e) => setSetting({ tokenFooter: e.target.value })}
+              placeholder="e.g. Please keep this slip until your turn"
+            />
+          </div>
+        </Card>
+
+        <Card>
+          <h3 className="text-sm font-semibold text-slate-800">Prescription printing</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Prescriptions print from each doctor’s own letterhead, set up per doctor under{" "}
+            <strong>Staff → Letterhead</strong>, so there is no clinic-wide prescription header here.
+          </p>
         </Card>
       </div>
     </div>

@@ -30,8 +30,13 @@ export const updateSettingsSchema = z.object({
       tokenResetDaily: z.boolean(),
       taxPercent: z.number().min(0).max(100),
       currency: z.string().trim().min(1).max(10),
-      prescriptionHeader: z.string().max(2000),
-      prescriptionFooter: z.string().max(2000),
+      // Prescriptions are printed from the per-doctor letterhead template, which carries its
+      // own header artwork, so the old prescriptionHeader/Footer settings were replaced with
+      // ones for the two documents that are still rendered by us: receipts and token slips.
+      billingHeader: z.string().max(2000),
+      billingFooter: z.string().max(2000),
+      tokenHeader: z.string().max(2000),
+      tokenFooter: z.string().max(2000),
       invoicePrefix: z.string().trim().min(1).max(20),
     })
     .partial(),

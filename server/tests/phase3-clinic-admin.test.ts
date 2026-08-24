@@ -165,6 +165,43 @@ describe("Phase 3 — clinic settings RBAC", () => {
     expect(update.body.data.settings.taxPercent).toBe(5);
   });
 
+  it("round-trips the receipt and token slip header/footer", async () => {
+    const read = await request(app).get("/api/v1/clinic-settings").set("Authorization", `Bearer ${A.adminToken}`);
+    // Defaults exist for a clinic that has never saved settings.
+    expect(read.body.data.settings.billingFooter).toBe("Thank you for your visit");
+    expect(read.body.data.settings.tokenFooter).toBe("Please keep this slip until your turn");
+
+    const update = await request(app)
+      .put("/api/v1/clinic-settings")
+      .set("Authorization", `Bearer ${A.adminToken}`)
+      .send({
+        clinicName: read.body.data.clinicName,
+        timeZone: "Asia/Karachi",
+        operatingHours: read.body.data.operatingHours,
+        settings: {
+          billingHeader: "369-D, Pak PWD Society\nLoi Bher, Islamabad",
+          billingFooter: "No refunds after 7 days",
+          tokenHeader: "Tel: 051-5156174",
+          tokenFooter: "Keep this slip",
+        },
+      });
+    expect(update.status).toBe(200);
+    expect(update.body.data.settings.billingHeader).toContain("Loi Bher");
+    expect(update.body.data.settings.tokenFooter).toBe("Keep this slip");
+
+    // Persisted, not just echoed back.
+    const reread = await request(app).get("/api/v1/clinic-settings").set("Authorization", `Bearer ${A.adminToken}`);
+    expect(reread.body.data.settings.billingFooter).toBe("No refunds after 7 days");
+    expect(reread.body.data.settings.tokenHeader).toBe("Tel: 051-5156174");
+  });
+
+  it("lets a receptionist read the print templates they need for receipts and slips", async () => {
+    const res = await request(app).get("/api/v1/clinic-settings").set("Authorization", `Bearer ${A.receptionToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.settings.billingFooter).toBeDefined();
+    expect(res.body.data.settings.tokenFooter).toBeDefined();
+  });
+
   it("rejects an MR No format missing the {YYYY}/{seq} placeholders (400)", async () => {
     const read = await request(app).get("/api/v1/clinic-settings").set("Authorization", `Bearer ${A.adminToken}`);
     const save = (mrNoFormat: string) =>

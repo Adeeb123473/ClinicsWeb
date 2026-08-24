@@ -42,6 +42,14 @@ function esc(v: string | number | null | undefined): string {
   return String(v ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] as string);
 }
 
+/** Renders a clinic-configured header/footer block, or nothing when it is blank. */
+function noteBlock(text: string | null | undefined): string {
+  const clean = (text ?? "").trim();
+  if (clean === "") return "";
+  // Preserve the author's line breaks; they usually write an address across several lines.
+  return `<div class="center muted" style="white-space:pre-wrap">${esc(clean)}</div>`;
+}
+
 export function tokenSlipHtml(a: {
   clinicName: string;
   tokenNo: number;
@@ -51,10 +59,13 @@ export function tokenSlipHtml(a: {
   roomNo: string | null;
   date: string;
   visitType: string;
+  header?: string;
+  footer?: string;
 }): string {
   return `
     <div class="center">
       <h2>${esc(a.clinicName)}</h2>
+      ${noteBlock(a.header)}
       <div class="muted">Token Slip</div>
       <hr class="divider" />
       <div class="muted">TOKEN NUMBER</div>
@@ -68,7 +79,7 @@ export function tokenSlipHtml(a: {
     <div class="row"><span>Visit</span><span>${esc(a.visitType)}</span></div>
     <div class="row"><span>Date</span><span>${esc(a.date)}</span></div>
     <hr class="divider" />
-    <div class="center muted">Please keep this slip until your turn</div>`;
+    ${noteBlock(a.footer)}`;
 }
 
 export function patientCardHtml(p: {
@@ -146,6 +157,8 @@ export function receiptHtml(inv: {
   paidAmount: number;
   status: string;
   currency: string;
+  header?: string;
+  footer?: string;
 }): string {
   const cur = (n: number) => `${inv.currency} ${n.toLocaleString()}`;
   const rows = inv.items
@@ -155,7 +168,7 @@ export function receiptHtml(inv: {
     )
     .join("");
   return `
-    <div class="center"><h2>${esc(inv.clinicName)}</h2><div class="muted">Receipt · ${esc(inv.invoiceNo)}</div></div>
+    <div class="center"><h2>${esc(inv.clinicName)}</h2>${noteBlock(inv.header)}<div class="muted">Receipt · ${esc(inv.invoiceNo)}</div></div>
     <hr class="divider" />
     <div class="row"><span>Patient</span><span>${esc(inv.patientName)} (${esc(inv.mrNo)})</span></div>
     <div class="row"><span>Date</span><span>${esc(inv.date)}</span></div>
@@ -169,5 +182,5 @@ export function receiptHtml(inv: {
     <div class="row"><span>Paid</span><span>${cur(inv.paidAmount)}</span></div>
     <div class="row"><span>Status</span><strong>${esc(inv.status)}</strong></div>
     <hr class="divider" />
-    <div class="center muted">Thank you for your visit</div>`;
+    ${noteBlock(inv.footer)}`;
 }

@@ -7,8 +7,12 @@ export interface ClinicSettings {
   tokenResetDaily: boolean;
   taxPercent: number;
   currency: string;
-  prescriptionHeader: string;
-  prescriptionFooter: string;
+  /** Extra lines printed above/below a billing receipt. */
+  billingHeader: string;
+  billingFooter: string;
+  /** Extra lines printed above/below a queue token slip. */
+  tokenHeader: string;
+  tokenFooter: string;
   invoicePrefix: string;
 }
 
@@ -17,8 +21,10 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   tokenResetDaily: true,
   taxPercent: 0,
   currency: "PKR",
-  prescriptionHeader: "",
-  prescriptionFooter: "",
+  billingHeader: "",
+  billingFooter: "Thank you for your visit",
+  tokenHeader: "",
+  tokenFooter: "Please keep this slip until your turn",
   invoicePrefix: "INV",
 };
 

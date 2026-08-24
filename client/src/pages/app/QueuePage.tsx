@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { clinicApi, type Appointment } from "../../features/clinic/clinicApi";
 import { BookAppointmentModal } from "../../features/clinic/BookAppointmentModal";
+import { clinicAdminApi } from "../../features/clinicAdmin/clinicAdminApi";
 import { PageHeader } from "../../components/PageHeader";
 import { Card } from "../../components/Card";
 import { Badge } from "../../components/Badge";
@@ -57,6 +58,9 @@ export function QueuePage() {
     onError: (err) => toast.error(errorMessage(err)),
   });
 
+  // Token slips carry the clinic's own name plus its configured header/footer.
+  const { data: clinic } = useQuery({ queryKey: ["clinic-settings"], queryFn: clinicAdminApi.getSettings });
+
   const byDoctor = useMemo(() => {
     const groups = new Map<string, { doctorName: string; roomNo: string | null; appts: Appointment[] }>();
     for (const a of data ?? []) {
@@ -70,7 +74,9 @@ export function QueuePage() {
     printHtml(
       `Token ${a.tokenNo}`,
       tokenSlipHtml({
-        clinicName: "ClinicOS",
+        clinicName: clinic?.clinicName ?? "",
+        header: clinic?.settings.tokenHeader,
+        footer: clinic?.settings.tokenFooter,
         tokenNo: a.tokenNo,
         patientName: a.patientName,
         mrNo: a.mrNo,
