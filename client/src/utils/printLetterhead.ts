@@ -52,9 +52,11 @@ export const PRINT_SETTINGS_HELP = [
  * `@page { size: A4; margin: 0 }` removes the browser's own printable-area margin so that
  * 0mm in our coordinate system is the physical corner of the sheet.
  */
-export function printA4Html(title: string, bodyHtml: string, extraCss = ""): void {
+export function printA4Html(title: string, bodyHtml: string, extraCss = ""): boolean {
   const win = window.open("", "_blank", "width=900,height=1000");
-  if (!win) return;
+  // A blocked popup is the one failure a user cannot diagnose — printing just does nothing —
+  // so report it rather than returning silently.
+  if (!win) return false;
 
   win.document.write(`<!doctype html>
 <html>
@@ -83,4 +85,5 @@ export function printA4Html(title: string, bodyHtml: string, extraCss = ""): voi
   setTimeout(() => {
     win.print();
   }, 400);
+  return true;
 }

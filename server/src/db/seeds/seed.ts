@@ -157,6 +157,32 @@ async function seed(): Promise<void> {
     }
   }
 
+  // A worked OVERLAY example for the first doctor, matching the sample pad the feature was
+  // built against (Haji Umer Din Welfare Trust): a single printed rule near the top carrying
+  // "Date ___", "Patient Name ___" and "Age ___", and no gender blank at all — so gender is
+  // configured as inlineWith patientName and prints as "Muhammad Ahmed / M".
+  //
+  // Left DRAFT rather than CALIBRATED: nobody has run a test print against a physical pad, and
+  // claiming otherwise would defeat the point of the status.
+  console.log("Seeding a sample letterhead template...");
+  await pool
+    .request()
+    .input("clinicId", sql.UniqueIdentifier, clinicId)
+    .input("doctorId", sql.UniqueIdentifier, doctorIds[0])
+    .input("fields", sql.NVarChar(sql.MAX), JSON.stringify([
+      { key: "date", xMm: 16, yMm: 60.5, widthMm: 30, fontSizePt: 10, align: "left" },
+      { key: "patientName", xMm: 62, yMm: 60.5, widthMm: 82, fontSizePt: 11, align: "left" },
+      { key: "gender", xMm: 0, yMm: 0, inlineWith: "patientName", prefix: " / ", fontSizePt: 11 },
+      { key: "age", xMm: 178, yMm: 60.5, widthMm: 22, fontSizePt: 10, align: "left" },
+      { key: "consultationBody", xMm: 34, yMm: 82, widthMm: 160, heightMm: 165, fontSizePt: 11 },
+    ]))
+    .query(`
+      IF NOT EXISTS (SELECT 1 FROM LetterheadTemplates WHERE DoctorID = @doctorId)
+      INSERT INTO LetterheadTemplates
+        (ClinicID, DoctorID, Mode, PaperSize, PaperWidthMm, PaperHeightMm, Status, Fields)
+      VALUES (@clinicId, @doctorId, 'OVERLAY', 'A4', 210, 297, 'DRAFT', @fields)
+    `);
+
   console.log("Seeding sample patients...");
   const patientIds: string[] = [];
   let seq = 1;

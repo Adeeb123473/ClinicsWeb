@@ -17,6 +17,9 @@ import { errorMessage } from "../../api/http";
 import { useAuthStore } from "../../store/authStore";
 import { formatDate } from "../../utils/format";
 import { printHtml, prescriptionHtml } from "../../utils/print";
+import { letterheadApi } from "../../features/letterhead/letterheadApi";
+import { printTemplate } from "../../features/letterhead/printTemplate";
+import { LetterheadSetupModal } from "../../features/letterhead/LetterheadSetupModal";
 
 export function ConsultationPage() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
@@ -89,6 +92,15 @@ function ConsultationEditor({
   const [saving, setSaving] = useState(false);
 
   const templatesQuery = useQuery({ queryKey: ["rx-templates"], queryFn: clinicalApi.listTemplates });
+
+  // The treating doctor's letterhead, if they have set one up. Printing falls back to the
+  // built-in prescription layout when there is none, so this never blocks a consultation.
+  const letterheadQuery = useQuery({
+    queryKey: ["letterhead", appointment.doctorId],
+    queryFn: () => letterheadApi.get(appointment.doctorId),
+  });
+  const letterhead = letterheadQuery.data;
+  const [editingLetterhead, setEditingLetterhead] = useState(false);
   const set = (patch: Partial<ConsultForm>) => setForm({ ...form, ...patch });
 
   const persist = async (): Promise<void> => {
@@ -136,6 +148,40 @@ function ConsultationEditor({
 
   const printPrescription = () => {
     const age = patient.currentAge ? `${patient.currentAge.value} ${patient.currentAge.unit}` : "—";
+
+    // Prefer the doctor's own letterhead when one is configured. A DRAFT template still prints
+    // — the warning banner tells them it is uncalibrated — because refusing to print would be
+    // worse than printing something slightly misaligned.
+    if (letterhead?.letterheadImageUrl) {
+      const body = [
+        form.diagnosis ? `Diagnosis: ${form.diagnosis}` : "",
+        ...items
+          .filter((it) => it.medicineName.trim())
+          .map((it) => `${it.medicineName} — ${[it.dosage, it.frequency, it.durationDays ? `${it.durationDays} days` : ""].filter(Boolean).join(", ")}`),
+        form.followUpDate ? `Follow-up: ${formatDate(form.followUpDate)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const result = printTemplate(
+        letterhead,
+        {
+          patientName: patient.PatientName,
+          age,
+          gender: patient.Gender,
+          date: formatDate(new Date()),
+          mrNo: patient.MRNo,
+          doctorName,
+          consultationBody: body,
+        },
+        `Prescription ${patient.MRNo}`,
+      );
+      if (!result.ok) {
+        toast.error("Your browser blocked the print window. Allow pop-ups for this site and try again.");
+      }
+      return;
+    }
+
     printHtml(
       `Prescription ${patient.MRNo}`,
       prescriptionHtml({
@@ -176,6 +222,27 @@ function ConsultationEditor({
           </div>
         }
       />
+
+      {letterhead && letterhead.status === "DRAFT" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-200 bg-warning-50 p-3">
+          <p className="text-sm text-warning-800">
+            This doctor’s letterhead has not been calibrated with a test print, so printed text may not line up with
+            the pad.
+          </p>
+          <Button size="sm" variant="secondary" onClick={() => setEditingLetterhead(true)}>
+            Set up letterhead
+          </Button>
+        </div>
+      )}
+
+      {editingLetterhead && (
+        <LetterheadSetupModal
+          doctorId={appointment.doctorId}
+          doctorName={doctorName}
+          onClose={() => setEditingLetterhead(false)}
+          onSaved={() => letterheadQuery.refetch()}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-4">

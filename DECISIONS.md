@@ -451,3 +451,49 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
     with **no** schema change applied (27 migrations, `LabOrderID` column confirmed absent):
     86 server tests, 9/9 end-to-end checks, and a Playwright pass showing the lab-orders panel
     and price-list picker both render and populate line items, with no console errors.
+
+- **Added per-doctor letterhead printing (overlay onto pre-printed pads, or full render).**
+  Built in phases with the calibration sheet first, because millimetre positioning either
+  survives a real printer or the entire feature is worthless.
+  - *Units*: coordinates are millimetres from the top-left of the page, converted with the CSS
+    spec's fixed 96px-per-inch reference — not device DPI, which is irrelevant to print output.
+    Verified by rendering the calibration sheet to a real A4 PDF through Chromium and measuring
+    at 600dpi: a 100mm rule measured 100.137mm, a 50×25mm box measured 49.942 × 24.863mm. All
+    within 0.15mm, i.e. far inside the tolerance of a blank on a physical pad.
+  - *Geometry*: the projective transform is ~60 lines of dependency-free arithmetic (homography
+    by Gaussian elimination with partial pivoting, rectification by inverse mapping with bilinear
+    sampling) rather than a call into OpenCV.js. The original brief specified OpenCV for
+    automatic corner detection, but the input is a scanner-app PDF in which the page already
+    fills the frame — there is almost nothing to detect, so an 8MB dependency and a whole
+    "what if it fails to load" failure mode bought nothing. Dropped it with the user's
+    agreement; manual corners on an already-flat page are easy.
+  - *Input is PDF only, paper is always A4* (user's decision). A CamScanner export was the
+    reference sample. Its page box says A4 — but that is the scanner's export canvas, not the
+    physical pad, so the page size is deliberately **not** trusted as the paper size.
+  - *pdfjs-dist pinned to v4, not v6.* v6 uses `Map.prototype.getOrInsertComputed`, a proposal
+    so new that Chromium 141 throws on it — an unacceptable risk for clinic machines that are
+    typically older than the developer's. v4 is the mature line and renders the sample scan
+    correctly at 1653×2339 (200dpi).
+  - *Storage*: both images (original PDF, straightened JPEG) are `VARBINARY(MAX)` in SQL Server,
+    served through an authenticated route. The API runs on an ephemeral filesystem with no
+    static file serving, so disk-backed uploads would vanish on the next deploy. Blobs sit in
+    their own table so reading a template at print time does not drag a megabyte with it.
+  - *Printing* reuses the existing isolated-print-window approach rather than `@media print` on
+    the app DOM. The brief asked for the latter, but in OVERLAY mode the page must contain
+    *nothing* but field values, and the surest guarantee of that is printing a document that
+    never contained the app — there is no chrome to suppress. `printA4Html` returns whether the
+    window opened so a blocked popup surfaces as a message instead of printing silently doing
+    nothing.
+  - *inlineWith* composition covers pads with no gender blank: gender is appended to the patient
+    name rather than getting a box. Validation rejects self-reference, dangling targets and
+    chained inlining, keeping composition a single append.
+  - Two bugs found only by driving the real UI, both invisible to unit tests: cleanup code in a
+    `finally` threw and converted an already-successful PDF render into a failure; and Vite does
+    not rewrite `new URL("pkg/...", import.meta.url)` for bare package specifiers, so the pdfjs
+    worker silently 404'd and the promise never settled. Fixed by keeping the loading task for
+    teardown (guarded so teardown can never fail the render) and by importing the worker with
+    Vite's `?url` suffix. `pdfjs-dist` is also pre-bundled via `optimizeDeps.include`, since
+    discovering it mid-session triggers a full page reload that throws away half-finished setup.
+  - 104 server tests (up from 86) and 49 client tests (up from 3). Verified live end-to-end
+    against the real CamScanner sample: upload → corners → verify → fields → test print → save,
+    with the template, corner points, calibration and both images persisted correctly.

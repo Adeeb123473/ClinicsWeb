@@ -12,6 +12,7 @@ import { PlusIcon } from "../../components/icons";
 import { toast } from "../../store/toastStore";
 import { errorMessage } from "../../api/http";
 import { titleCase, formatDate } from "../../utils/format";
+import { LetterheadSetupModal } from "../../features/letterhead/LetterheadSetupModal";
 
 const ROLE_OPTIONS = [
   { value: "DOCTOR", label: "Doctor" },
@@ -31,6 +32,7 @@ export function StaffPage() {
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [resetting, setResetting] = useState<StaffMember | null>(null);
+  const [letterheadFor, setLetterheadFor] = useState<{ doctorId: string; name: string } | null>(null);
 
   const { data: staff, isLoading } = useQuery({ queryKey: ["clinic", "staff"], queryFn: clinicAdminApi.listStaff });
 
@@ -86,6 +88,15 @@ export function StaffPage() {
       className: "text-right",
       render: (s) => (
         <div className="flex justify-end gap-1.5">
+          {s.doctor && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setLetterheadFor({ doctorId: s.doctor!.doctorId, name: s.fullName })}
+            >
+              Letterhead
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={() => setResetting(s)}>
             Reset password
           </Button>
@@ -126,25 +137,37 @@ export function StaffPage() {
       {creating && (
         <CreateStaffModal
           onClose={() => setCreating(false)}
-          onCreated={() => {
+          onCreated={(created) => {
             setCreating(false);
             queryClient.invalidateQueries({ queryKey: ["clinic", "staff"] });
+            // A letterhead is keyed by doctor, so setup can only begin once the doctor row
+            // exists. Flow straight into it rather than making the admin find the row again.
+            if (created?.doctor) {
+              setLetterheadFor({ doctorId: created.doctor.doctorId, name: created.fullName });
+            }
           }}
         />
       )}
       {resetting && <ResetPasswordModal staff={resetting} onClose={() => setResetting(null)} />}
+      {letterheadFor && (
+        <LetterheadSetupModal
+          doctorId={letterheadFor.doctorId}
+          doctorName={letterheadFor.name}
+          onClose={() => setLetterheadFor(null)}
+        />
+      )}
     </div>
   );
 }
 
-function CreateStaffModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateStaffModal({ onClose, onCreated }: { onClose: () => void; onCreated: (created?: StaffMember) => void }) {
   const [form, setForm] = useState<CreateStaffInput>({ username: "", password: "", role: "RECEPTIONIST", fullName: "" });
 
   const mutation = useMutation({
     mutationFn: () => clinicAdminApi.createStaff(form),
-    onSuccess: () => {
+    onSuccess: (created) => {
       toast.success("Staff member added");
-      onCreated();
+      onCreated(created);
     },
     onError: (err) => toast.error(errorMessage(err)),
   });

@@ -176,6 +176,53 @@ Unlike Render, Vercel always installs `devDependencies` during the build step re
 
 `/auth` (login, refresh, logout, register-clinic), `/admin/plans`, `/admin/clinics`, `/admin/platform` (settings), `/admin/dashboard`, `/admin/audit-log`, `/users` (staff), `/clinic-settings`, `/reports`, `/patients` (+ `/:id/history`, `/duplicates`), `/doctors` (+ `/:id/slots`, `/:id/schedule`, `/:id/leaves`), `/appointments`, `/billing/invoices`, `/vitals`, `/consultations`, `/prescriptions` (+ `/templates`), `/medicines`, `/lab`.
 
+## Doctor letterheads (printing onto pre-printed pads)
+
+Each doctor can have a letterhead template so prescriptions print correctly on **their** stationery.
+Paper is always A4.
+
+**Two print modes**
+
+- **Overlay** — the doctor already has pre-printed pads. Only the variable data (patient name,
+  age, gender, date, consultation body) is printed, positioned to land in the pad's blanks.
+  Nothing else reaches the printer, and the uploaded letterhead image is *never* printed — it
+  exists only as an alignment backdrop in the editor.
+- **Full** — the letterhead image is printed too, for plain paper. Since the upload is a scan,
+  expect visibly poorer output than the real pad (softer, slightly tinted, and any scanner
+  watermark prints as well). Use a flatbed scan or a vector PDF from the pad's printer if you
+  need this to look good.
+
+**Setting one up** (Staff → a doctor's **Letterhead** button, or straight after creating a doctor)
+
+1. **Upload** a PDF scan of the pad. A phone scanning app such as CamScanner is fine — it
+   straightens the page for you. Only page 1 is used. The PDF's own page size is *not* trusted as
+   the pad size: scanner apps export to an A4 canvas whatever they photographed.
+2. **Corners** — drag the four handles onto the pad's corners, excluding any desk or background.
+   A magnifier appears while dragging. Optional Enhance (white balance + contrast) and Grayscale.
+3. **Verify** — check the pad's edges line up with the rulers. A mis-set corner here silently
+   corrupts every field coordinate, so it is worth a moment.
+4. **Fields** — drag Date / Patient Name / Age / Gender onto their blanks, pre-filled with sample
+   text. Each field has position (drag or exact mm), width, alignment, font, size, weight,
+   uppercase, prefix/suffix, and a visibility switch. Arrow keys nudge 0.5 mm, shift+arrow 0.1 mm,
+   hold Alt to disable snapping.
+   *Pads with no gender blank* (including the sample one) use **Print inside another field** to
+   append gender to the patient name — "Muhammad Ahmed / M".
+5. **Test print** — print with the sample values onto a real pad. If the text is consistently off,
+   enter the mm shift and print again. When it lines up, mark it **calibrated**.
+
+Setup is always skippable ("Set this up later"), leaving the template in `DRAFT`. Printing a
+consultation for a `DRAFT` letterhead still works but shows a non-blocking warning.
+
+**Print dialog settings matter more than anything else here.** Set **Scale 100%**, **Margins
+None**, headers/footers off. A page printed at "Fit to page" is silently scaled by a few percent —
+several millimetres of drift by the bottom of an A4 sheet. `/app/letterhead-calibration` prints a
+ruler sheet with two 100 mm reference lines to verify this on your own printer before blaming the
+template.
+
+Images (the original PDF and the straightened result) are stored in the database and served
+through an authenticated endpoint, because the API runs on an ephemeral filesystem where uploaded
+files would be lost on the next deploy.
+
 ## Access control beyond RBAC
 
 - **Clinic approval gate:** a clinic's staff cannot log in until a Super Admin approves the
