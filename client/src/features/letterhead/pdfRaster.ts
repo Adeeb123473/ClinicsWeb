@@ -103,7 +103,8 @@ export async function rasterisePdfFirstPage(file: Blob, dpi: number = DEWARP_DPI
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+    // pdfjs v4 renders into a 2D context; `canvas` is not part of its RenderParameters.
+    await page.render({ canvasContext: ctx, viewport }).promise;
 
     return {
       canvas,

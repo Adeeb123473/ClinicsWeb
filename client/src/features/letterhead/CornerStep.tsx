@@ -206,7 +206,12 @@ export function CornerStep({
       out.height = heightPx;
       const outCtx = out.getContext("2d");
       if (!outCtx) throw new Error("no context");
-      outCtx.putImageData(new ImageData(cleaned.data, widthPx, heightPx), 0, 0);
+      // Built via createImageData + set() rather than `new ImageData(data, w, h)`: the DOM types
+      // require an ArrayBuffer-backed array, while a plain Uint8ClampedArray is typed over
+      // ArrayBufferLike (which admits SharedArrayBuffer) and is therefore not assignable.
+      const imageData = outCtx.createImageData(widthPx, heightPx);
+      imageData.data.set(cleaned.data);
+      outCtx.putImageData(imageData, 0, 0);
 
       onDone({
         // JPEG keeps a 1654x2339 scan well under the upload limit; the backdrop does not need
