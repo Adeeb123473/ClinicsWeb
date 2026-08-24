@@ -79,6 +79,9 @@ beforeAll(async () => {
 afterAll(async () => {
   const pool = await getPool();
   await pool.request().input("id", sql.UniqueIdentifier, A.clinicId).query(`
+    DELETE FROM Payments WHERE ClinicID = @id;
+    DELETE FROM InvoiceItems WHERE InvoiceID IN (SELECT InvoiceID FROM Invoices WHERE ClinicID = @id);
+    DELETE FROM Invoices WHERE ClinicID = @id;
     DELETE FROM LabResults WHERE LabOrderID IN (SELECT LabOrderID FROM LabOrders WHERE ClinicID = @id);
     DELETE FROM LabOrders WHERE ClinicID = @id;
     DELETE FROM LabTests WHERE ClinicID = @id;
@@ -134,5 +137,119 @@ describe("Phase 6 — lab workflow", () => {
   it("blocks a receptionist from lab orders list (403)", async () => {
     const res = await request(app).get("/api/v1/lab/orders").set("Authorization", `Bearer ${A.receptionToken}`);
     expect(res.status).toBe(403);
+  });
+
+  // --- Lab billing for reception -------------------------------------------------------------
+  // At this point the order above is Completed and HAS a result recorded, which makes it the
+  // right fixture for proving the billing view never leaks clinical data.
+
+  it("lets a receptionist list billable lab orders without exposing the result", async () => {
+    const res = await request(app)
+      .get(`/api/v1/lab/orders/billable?patientId=${A.patientId}`)
+      .set("Authorization", `Bearer ${A.receptionToken}`);
+    expect(res.status).toBe(200);
+
+    const order = res.body.data.find((o: { labOrderId: string }) => o.labOrderId === orderId);
+    expect(order).toBeDefined();
+    expect(order.testName).toBe("CBC");
+    expect(order.price).toBe(800);
+
+    // The privacy boundary: reception gets billing fields only, never the result.
+    expect(order.resultText).toBeUndefined();
+    expect(order.reviewedAt).toBeUndefined();
+    expect(JSON.stringify(res.body)).not.toContain("Hb 13.5");
+  });
+
+  it("requires patientId on the billable endpoint (400)", async () => {
+    const res = await request(app).get("/api/v1/lab/orders/billable").set("Authorization", `Bearer ${A.receptionToken}`);
+    expect(res.status).toBe(400);
+  });
+
+  it("blocks a DOCTOR from the reception billing view (403)", async () => {
+    const res = await request(app)
+      .get(`/api/v1/lab/orders/billable?patientId=${A.patientId}`)
+      .set("Authorization", `Bearer ${A.doctorToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("bills a lab order once, then drops it from the billable list", async () => {
+    const inv = await request(app)
+      .post("/api/v1/billing/invoices")
+      .set("Authorization", `Bearer ${A.receptionToken}`)
+      .send({ patientId: A.patientId, items: [{ description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: orderId }] });
+    expect(inv.status).toBe(201);
+    expect(inv.body.data.items[0].labOrderId.toLowerCase()).toBe(orderId.toLowerCase());
+
+    const after = await request(app)
+      .get(`/api/v1/lab/orders/billable?patientId=${A.patientId}`)
+      .set("Authorization", `Bearer ${A.receptionToken}`);
+    expect(after.body.data.find((o: { labOrderId: string }) => o.labOrderId === orderId)).toBeUndefined();
+  });
+
+  it("rejects billing the same lab order twice (400)", async () => {
+    const res = await request(app)
+      .post("/api/v1/billing/invoices")
+      .set("Authorization", `Bearer ${A.receptionToken}`)
+      .send({ patientId: A.patientId, items: [{ description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: orderId }] });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("LAB_ORDER_NOT_BILLABLE");
+  });
+
+  it("rejects the same lab order twice on one invoice (400)", async () => {
+    const order = await request(app)
+      .post("/api/v1/lab/orders")
+      .set("Authorization", `Bearer ${A.doctorToken}`)
+      .send({ patientId: A.patientId, labTestId: testId });
+    const dupId = order.body.data.labOrderId;
+
+    const res = await request(app)
+      .post("/api/v1/billing/invoices")
+      .set("Authorization", `Bearer ${A.receptionToken}`)
+      .send({
+        patientId: A.patientId,
+        items: [
+          { description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: dupId },
+          { description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: dupId },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("LAB_ORDER_DUPLICATED");
+  });
+
+  it("rejects billing another patient's lab order (400)", async () => {
+    const pool = await getPool();
+    const other = await pool
+      .request()
+      .input("clinicId", sql.UniqueIdentifier, A.clinicId)
+      .input("mr", sql.NVarChar, `MR-P6-OTHER-${RUN}`)
+      .query<{ PatientID: string }>(
+        `INSERT INTO Patients (ClinicID, MRNo, PatientName, Gender, ActualDOB) OUTPUT INSERTED.PatientID VALUES (@clinicId, @mr, 'Other P6', 'Male', '1990-01-01')`,
+      );
+    const otherPatientId = other.recordset[0].PatientID;
+
+    const order = await request(app)
+      .post("/api/v1/lab/orders")
+      .set("Authorization", `Bearer ${A.doctorToken}`)
+      .send({ patientId: A.patientId, labTestId: testId });
+
+    // Order belongs to A.patientId, invoice is for otherPatientId.
+    const res = await request(app)
+      .post("/api/v1/billing/invoices")
+      .set("Authorization", `Bearer ${A.receptionToken}`)
+      .send({
+        patientId: otherPatientId,
+        items: [{ description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: order.body.data.labOrderId }],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("LAB_ORDER_NOT_BILLABLE");
+  });
+
+  it("still lets a plain non-lab invoice through unchanged", async () => {
+    const res = await request(app)
+      .post("/api/v1/billing/invoices")
+      .set("Authorization", `Bearer ${A.receptionToken}`)
+      .send({ patientId: A.patientId, items: [{ description: "Consultation fee", quantity: 1, unitPrice: 500 }] });
+    expect(res.status).toBe(201);
+    expect(res.body.data.items[0].labOrderId).toBeNull();
   });
 });

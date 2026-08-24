@@ -5,6 +5,7 @@ import {
   listTests,
   insertTest,
   listOrders,
+  listBillableOrders,
   findOrder,
   insertOrder,
   setOrderStatus,
@@ -40,6 +41,26 @@ function toOrderDto(o: LabOrderRow) {
 
 export async function getOrders(clinicId: string, patientId?: string, status?: string) {
   return (await listOrders(clinicId, patientId, status)).map(toOrderDto);
+}
+
+/**
+ * Billing view of a patient's outstanding lab orders. The DTO carries only what reception needs
+ * to raise an invoice line — test name, price, order status — and deliberately omits resultText
+ * and reviewedAt, which `toOrderDto` exposes to clinical roles.
+ */
+export async function getBillableOrders(clinicId: string, patientId: string) {
+  const patient = await findPatientByIdForClinic(clinicId, patientId);
+  if (!patient) throw ApiError.notFound("Patient not found");
+  return (await listBillableOrders(clinicId, patientId)).map((o) => ({
+    labOrderId: o.LabOrderID,
+    patientId: o.PatientID,
+    labTestId: o.LabTestID,
+    testName: o.TestName,
+    price: Number(o.Price),
+    status: o.Status,
+    orderedAt: o.OrderedAt,
+    mrNo: o.MRNo,
+  }));
 }
 
 export async function orderTest(authUser: AccessTokenPayload, patientId: string, consultationId: string | null, labTestId: string) {

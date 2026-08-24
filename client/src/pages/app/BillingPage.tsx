@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { clinicApi, type InvoiceSummary, type Invoice, type Patient } from "../../features/clinic/clinicApi";
+import {
+  clinicApi,
+  type InvoiceSummary,
+  type Invoice,
+  type Patient,
+  type LabTest,
+  type BillableLabOrder,
+} from "../../features/clinic/clinicApi";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type Column } from "../../components/Table";
 import { Badge } from "../../components/Badge";
@@ -8,7 +15,7 @@ import { Button } from "../../components/Button";
 import { Input } from "../../components/Input";
 import { Select } from "../../components/Select";
 import { Modal } from "../../components/Modal";
-import { PlusIcon, PrintIcon, SearchIcon, TrashIcon } from "../../components/icons";
+import { PlusIcon, PrintIcon, SearchIcon, TrashIcon, FlaskIcon } from "../../components/icons";
 import { PlanUpgradeNotice } from "../../components/PlanUpgradeNotice";
 import { toast } from "../../store/toastStore";
 import { errorMessage, errorCode } from "../../api/http";
@@ -146,6 +153,92 @@ interface LineItem {
   description: string;
   quantity: number;
   unitPrice: number;
+  /** Set when the line charges a doctor-ordered lab test, so the server can bill it only once. */
+  labOrderId?: string | null;
+}
+
+/**
+ * Lab tests a doctor ordered for this patient that haven't been billed yet. Reception ticks the
+ * ones the patient is paying for; they become invoice lines carrying their labOrderId. The
+ * endpoint returns test name/price/status only — never results.
+ */
+function BillableLabOrders({ patientId, onAdd }: { patientId: string; onAdd: (orders: BillableLabOrder[]) => void }) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const { data, isLoading } = useQuery({
+    queryKey: ["lab", "billable", patientId],
+    queryFn: () => clinicApi.listBillableLabOrders(patientId),
+  });
+
+  if (isLoading || !data || data.length === 0) return null;
+
+  const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+
+  return (
+    <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary-700">
+        Unbilled lab orders for this patient
+      </p>
+      <div className="flex flex-col gap-1">
+        {data.map((o) => (
+          <label key={o.labOrderId} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-white/70">
+            <input type="checkbox" checked={picked.includes(o.labOrderId)} onChange={() => toggle(o.labOrderId)} className="h-4 w-4" />
+            <span className="flex-1 font-medium text-slate-700">{o.testName}</span>
+            <Badge tone="neutral">{o.status}</Badge>
+            <span className="w-20 text-right tabular-nums text-slate-600">{formatCurrency(o.price)}</span>
+          </label>
+        ))}
+      </div>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="mt-2"
+        disabled={picked.length === 0}
+        onClick={() => {
+          onAdd(data.filter((o) => picked.includes(o.labOrderId)));
+          setPicked([]);
+        }}
+      >
+        <PlusIcon className="h-4 w-4" />
+        {picked.length > 0 ? `Add ${picked.length} test${picked.length > 1 ? "s" : ""} to invoice` : "Add tests to invoice"}
+      </Button>
+    </div>
+  );
+}
+
+/** Walk-in lab sales: any test from the clinic price list, with no doctor order behind it. */
+function AddLabTestPicker({ onPick }: { onPick: (test: LabTest) => void }) {
+  const [open, setOpen] = useState(false);
+  const { data } = useQuery({ queryKey: ["lab", "tests"], queryFn: clinicApi.listLabTests, enabled: open });
+
+  return (
+    <div className="relative">
+      <Button size="sm" variant="secondary" onClick={() => setOpen((o) => !o)}>
+        <FlaskIcon className="h-4 w-4" /> Add lab test
+      </Button>
+      {open && (
+        <div className="absolute bottom-full z-10 mb-1 max-h-56 w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+          {(data ?? []).length === 0 ? (
+            <p className="px-3 py-2 text-sm text-slate-400">No lab tests configured.</p>
+          ) : (
+            (data ?? []).map((t) => (
+              <button
+                key={t.labTestId}
+                type="button"
+                onClick={() => {
+                  onPick(t);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"
+              >
+                <span className="text-slate-700">{t.name}</span>
+                <span className="text-xs tabular-nums text-slate-400">{formatCurrency(t.price)}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCreated: (inv: Invoice) => void }) {
@@ -165,7 +258,9 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
       clinicApi.createInvoice({
         patientId: patient!.PatientID,
         discount,
-        items: items.filter((it) => it.description && it.unitPrice >= 0),
+        items: items
+          .filter((it) => it.description && it.unitPrice >= 0)
+          .map((it) => ({ ...it, labOrderId: it.labOrderId ?? null })),
       }),
     onSuccess: (inv) => {
       toast.success(`Invoice ${inv.invoiceNo} created`);
@@ -223,6 +318,24 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
           </div>
         )}
 
+        {patient && (
+          <BillableLabOrders
+            patientId={patient.PatientID}
+            onAdd={(orders) =>
+              setItems((prev) => [
+                // Drop the untouched default placeholder line so the invoice isn't left with a blank row.
+                ...prev.filter((it) => it.description.trim() !== "" || it.unitPrice > 0),
+                ...orders.map((o) => ({
+                  description: `Lab: ${o.testName}`,
+                  quantity: 1,
+                  unitPrice: o.price,
+                  labOrderId: o.labOrderId,
+                })),
+              ])
+            }
+          />
+        )}
+
         <div className="flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Line items</p>
           {items.map((it, idx) => (
@@ -258,9 +371,20 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
               </Button>
             </div>
           ))}
-          <Button size="sm" variant="secondary" onClick={() => setItems([...items, { description: "", quantity: 1, unitPrice: 0 }])}>
-            <PlusIcon className="h-4 w-4" /> Add item
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setItems([...items, { description: "", quantity: 1, unitPrice: 0 }])}>
+              <PlusIcon className="h-4 w-4" /> Add item
+            </Button>
+            <AddLabTestPicker
+              onPick={(t) =>
+                setItems((prev) => [
+                  ...prev.filter((it) => it.description.trim() !== "" || it.unitPrice > 0),
+                  // No labOrderId: a walk-in sale has no doctor order behind it, so nothing to bill-once.
+                  { description: `Lab: ${t.name}`, quantity: 1, unitPrice: t.price },
+                ])
+              }
+            />
+          </div>
         </div>
 
         <div className="flex items-center justify-between border-t border-slate-100 pt-3">

@@ -77,6 +77,50 @@ export async function listOrders(clinicId: string, patientId?: string, status?: 
   return result.recordset;
 }
 
+export interface BillableLabOrderRow {
+  LabOrderID: string;
+  PatientID: string;
+  LabTestID: string;
+  Status: string;
+  OrderedAt: Date;
+  TestName: string;
+  Price: number;
+  PatientName: string;
+  MRNo: string;
+}
+
+/**
+ * Lab orders for one patient that can still be charged: not cancelled, and not already sitting
+ * on a live (non-Void) invoice. Voiding an invoice therefore frees its orders to be re-billed.
+ *
+ * This is the query behind reception's billing screen, so unlike ORDER_SELECT it deliberately
+ * does NOT join LabResults — a receptionist must never receive result text (CLAUDE.md §2).
+ */
+export async function listBillableOrders(clinicId: string, patientId: string): Promise<BillableLabOrderRow[]> {
+  assertClinicId(clinicId);
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input("clinicId", sql.UniqueIdentifier, clinicId)
+    .input("patientId", sql.UniqueIdentifier, patientId)
+    .query<BillableLabOrderRow>(`
+      SELECT o.LabOrderID, o.PatientID, o.LabTestID, o.Status, o.OrderedAt,
+        t.Name AS TestName, t.Price, p.PatientName, p.MRNo
+      FROM LabOrders o
+      JOIN LabTests t ON t.LabTestID = o.LabTestID
+      JOIN Patients p ON p.PatientID = o.PatientID
+      WHERE o.ClinicID = @clinicId AND o.PatientID = @patientId
+        AND o.Status <> 'Cancelled'
+        AND NOT EXISTS (
+          SELECT 1 FROM InvoiceItems ii
+          JOIN Invoices inv ON inv.InvoiceID = ii.InvoiceID
+          WHERE ii.LabOrderID = o.LabOrderID AND inv.Status <> 'Void'
+        )
+      ORDER BY o.OrderedAt DESC
+    `);
+  return result.recordset;
+}
+
 export async function findOrder(clinicId: string, orderId: string): Promise<LabOrderRow | null> {
   assertClinicId(clinicId);
   const pool = await getPool();

@@ -41,6 +41,21 @@ router.post("/tests", authorize("CLINIC_ADMIN", "DOCTOR"), validateBody(testSche
   sendSuccess(res, await service.createTest(clinicId(req), b.name, b.category ?? null, b.price), 201);
 }));
 
+// Billing view of a patient's outstanding lab orders. Reception is allowed here — and only here
+// — because the response carries test name/price/status but no result text. Registered ahead of
+// the /orders/:id routes so the literal path cannot be shadowed by a param match.
+router.get(
+  "/orders/billable",
+  authorize("CLINIC_ADMIN", "RECEPTIONIST"),
+  asyncHandler(async (req, res) => {
+    const patientId = req.query.patientId;
+    if (typeof patientId !== "string" || !patientId) {
+      throw ApiError.badRequest("patientId is required");
+    }
+    sendSuccess(res, await service.getBillableOrders(clinicId(req), patientId));
+  }),
+);
+
 // Orders: doctors order; nurses/admins record results/status.
 router.get("/orders", authorize("CLINIC_ADMIN", "DOCTOR", "NURSE"), asyncHandler(async (req, res) => {
   sendSuccess(res, await service.getOrders(clinicId(req), req.query.patientId as string | undefined, req.query.status as string | undefined));

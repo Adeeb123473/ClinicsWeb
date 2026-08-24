@@ -92,8 +92,28 @@ export interface InvoiceSummary {
 }
 
 export interface Invoice extends InvoiceSummary {
-  items: { description: string; quantity: number; unitPrice: number; amount: number }[];
+  items: { description: string; quantity: number; unitPrice: number; amount: number; labOrderId: string | null }[];
   payments: { paymentId: string; amount: number; method: string; paidAt: string }[];
+}
+
+export interface LabTest {
+  labTestId: string;
+  name: string;
+  category: string | null;
+  price: number;
+  isActive: boolean;
+}
+
+/** Reception's billing view of a lab order — no result text (see lab.service.getBillableOrders). */
+export interface BillableLabOrder {
+  labOrderId: string;
+  patientId: string;
+  labTestId: string;
+  testName: string;
+  price: number;
+  status: string;
+  orderedAt: string;
+  mrNo: string;
 }
 
 export const clinicApi = {
@@ -117,4 +137,7 @@ export const clinicApi = {
   getInvoice: (id: string) => apiGet<Invoice>(`/billing/invoices/${id}`),
   createInvoice: (body: Record<string, unknown>) => apiPost<Invoice>("/billing/invoices", body),
   recordPayment: (id: string, amount: number, method: string) => apiPost<Invoice>(`/billing/invoices/${id}/payments`, { amount, method }),
+
+  listLabTests: () => apiGet<LabTest[]>("/lab/tests"),
+  listBillableLabOrders: (patientId: string) => apiGet<BillableLabOrder[]>("/lab/orders/billable", { patientId }),
 };

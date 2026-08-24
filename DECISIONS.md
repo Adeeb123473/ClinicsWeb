@@ -420,3 +420,31 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   the format is valid. Verified live against SQL Server: saving the broken format is rejected,
   a clinic with it already stored returns clean 400s for every attempt with zero
   `UNIQUE KEY` errors in the server log, and normal registration is unaffected.
+
+- **Added lab billing for reception, without breaching the lab-results privacy boundary.**
+  Reception previously had no way to charge for lab work: `GET /lab/orders` is doctor/nurse/admin
+  only (its DTO carries `resultText`), and invoice lines were free text with no link to a lab
+  order. Two paths now exist, per the clinic's actual workflow:
+  - *Doctor-ordered tests*: a new `GET /lab/orders/billable?patientId=` returns a patient's
+    uncancelled, not-yet-billed orders as a **billing** DTO — test name, price, status, orderedAt
+    — built from a query that deliberately does not join `LabResults`. It is authorized for
+    CLINIC_ADMIN/RECEPTIONIST only; doctors/nurses keep using `/lab/orders`. This is the one lab
+    endpoint reception may reach, and it cannot expose clinical data even by accident, because
+    the result text is absent from the query, not merely filtered from the response.
+  - *Walk-in sales*: reception picks any test from the price list. `GET /lab/tests` already
+    allowed RECEPTIONIST, so this needed no backend change — only a picker in the invoice modal.
+  - **Bill-once tracking** (migration 028): `InvoiceItems.LabOrderID` is a nullable FK to
+    `LabOrders`. "Already billed" is defined as *on a non-Void invoice*, so voiding an invoice
+    correctly frees its orders to be re-billed — which is exactly why the index is deliberately
+    **not** unique; the rule lives in `assertLabOrdersBillable()` in the billing service instead.
+    It rejects any line whose lab order isn't genuinely billable for that patient
+    (`LAB_ORDER_NOT_BILLABLE`) and any order listed twice on one invoice (`LAB_ORDER_DUPLICATED`),
+    so a stale reception screen or a double-submit cannot charge a test twice. Walk-in lines
+    carry no `LabOrderID` and are unconstrained — the same test can legitimately be sold again.
+  - Reception deliberately gets **no** Lab nav item: lab billing lives inside the Billing page,
+    so the role gains a billing capability, not lab access.
+  - Eight new tests (88 total, up from 80) cover the privacy boundary (a Completed order *with a
+    result recorded* still returns no `resultText`), doctor-blocked-from-billing-view, bill-once,
+    same-order-twice, cross-patient orders, and plain non-lab invoices being unaffected. Verified
+    live end-to-end (13/13 checks) and in the browser via Playwright: the unbilled-orders panel
+    and price-list picker both render and populate line items correctly, with no console errors.
