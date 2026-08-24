@@ -153,14 +153,13 @@ interface LineItem {
   description: string;
   quantity: number;
   unitPrice: number;
-  /** Set when the line charges a doctor-ordered lab test, so the server can bill it only once. */
-  labOrderId?: string | null;
 }
 
 /**
- * Lab tests a doctor ordered for this patient that haven't been billed yet. Reception ticks the
- * ones the patient is paying for; they become invoice lines carrying their labOrderId. The
- * endpoint returns test name/price/status only — never results.
+ * Lab tests a doctor ordered for this patient. Reception ticks the ones the patient is paying
+ * for and they become invoice lines. Nothing records which orders were already charged, so the
+ * order date is shown to help reception judge. The endpoint returns test name/price/status
+ * only — never results.
  */
 function BillableLabOrders({ patientId, onAdd }: { patientId: string; onAdd: (orders: BillableLabOrder[]) => void }) {
   const [picked, setPicked] = useState<string[]>([]);
@@ -176,13 +175,14 @@ function BillableLabOrders({ patientId, onAdd }: { patientId: string; onAdd: (or
   return (
     <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-3">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary-700">
-        Unbilled lab orders for this patient
+        Lab orders for this patient
       </p>
       <div className="flex flex-col gap-1">
         {data.map((o) => (
           <label key={o.labOrderId} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-white/70">
             <input type="checkbox" checked={picked.includes(o.labOrderId)} onChange={() => toggle(o.labOrderId)} className="h-4 w-4" />
             <span className="flex-1 font-medium text-slate-700">{o.testName}</span>
+            <span className="text-xs text-slate-400">{formatDate(o.orderedAt)}</span>
             <Badge tone="neutral">{o.status}</Badge>
             <span className="w-20 text-right tabular-nums text-slate-600">{formatCurrency(o.price)}</span>
           </label>
@@ -258,9 +258,7 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
       clinicApi.createInvoice({
         patientId: patient!.PatientID,
         discount,
-        items: items
-          .filter((it) => it.description && it.unitPrice >= 0)
-          .map((it) => ({ ...it, labOrderId: it.labOrderId ?? null })),
+        items: items.filter((it) => it.description && it.unitPrice >= 0),
       }),
     onSuccess: (inv) => {
       toast.success(`Invoice ${inv.invoiceNo} created`);
@@ -325,12 +323,7 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
               setItems((prev) => [
                 // Drop the untouched default placeholder line so the invoice isn't left with a blank row.
                 ...prev.filter((it) => it.description.trim() !== "" || it.unitPrice > 0),
-                ...orders.map((o) => ({
-                  description: `Lab: ${o.testName}`,
-                  quantity: 1,
-                  unitPrice: o.price,
-                  labOrderId: o.labOrderId,
-                })),
+                ...orders.map((o) => ({ description: `Lab: ${o.testName}`, quantity: 1, unitPrice: o.price })),
               ])
             }
           />
@@ -379,7 +372,6 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
               onPick={(t) =>
                 setItems((prev) => [
                   ...prev.filter((it) => it.description.trim() !== "" || it.unitPrice > 0),
-                  // No labOrderId: a walk-in sale has no doctor order behind it, so nothing to bill-once.
                   { description: `Lab: ${t.name}`, quantity: 1, unitPrice: t.price },
                 ])
               }

@@ -90,11 +90,12 @@ export interface BillableLabOrderRow {
 }
 
 /**
- * Lab orders for one patient that can still be charged: not cancelled, and not already sitting
- * on a live (non-Void) invoice. Voiding an invoice therefore frees its orders to be re-billed.
+ * A patient's chargeable lab orders (everything not cancelled), for reception's billing screen.
+ * There is no billed/unbilled tracking — nothing links an invoice line back to a lab order — so
+ * reception decides what to charge. Callers must present this as "lab orders", not "unbilled".
  *
- * This is the query behind reception's billing screen, so unlike ORDER_SELECT it deliberately
- * does NOT join LabResults — a receptionist must never receive result text (CLAUDE.md §2).
+ * Unlike ORDER_SELECT this deliberately does NOT join LabResults: a receptionist must never
+ * receive result text (CLAUDE.md §2). The result is absent from the query, not filtered later.
  */
 export async function listBillableOrders(clinicId: string, patientId: string): Promise<BillableLabOrderRow[]> {
   assertClinicId(clinicId);
@@ -111,11 +112,6 @@ export async function listBillableOrders(clinicId: string, patientId: string): P
       JOIN Patients p ON p.PatientID = o.PatientID
       WHERE o.ClinicID = @clinicId AND o.PatientID = @patientId
         AND o.Status <> 'Cancelled'
-        AND NOT EXISTS (
-          SELECT 1 FROM InvoiceItems ii
-          JOIN Invoices inv ON inv.InvoiceID = ii.InvoiceID
-          WHERE ii.LabOrderID = o.LabOrderID AND inv.Status <> 'Void'
-        )
       ORDER BY o.OrderedAt DESC
     `);
   return result.recordset;

@@ -92,7 +92,7 @@ export interface InvoiceSummary {
 }
 
 export interface Invoice extends InvoiceSummary {
-  items: { description: string; quantity: number; unitPrice: number; amount: number; labOrderId: string | null }[];
+  items: { description: string; quantity: number; unitPrice: number; amount: number }[];
   payments: { paymentId: string; amount: number; method: string; paidAt: string }[];
 }
 
@@ -104,7 +104,8 @@ export interface LabTest {
   isActive: boolean;
 }
 
-/** Reception's billing view of a lab order — no result text (see lab.service.getBillableOrders). */
+/** Reception's billing view of a lab order — no result text (see lab.service.getBillableOrders).
+ *  There is no billed/unbilled tracking, so this lists every non-cancelled order for the patient. */
 export interface BillableLabOrder {
   labOrderId: string;
   patientId: string;

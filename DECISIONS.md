@@ -426,25 +426,28 @@ Autonomous build decisions where CLAUDE.md left a choice. Newest phase last.
   only (its DTO carries `resultText`), and invoice lines were free text with no link to a lab
   order. Two paths now exist, per the clinic's actual workflow:
   - *Doctor-ordered tests*: a new `GET /lab/orders/billable?patientId=` returns a patient's
-    uncancelled, not-yet-billed orders as a **billing** DTO — test name, price, status, orderedAt
-    — built from a query that deliberately does not join `LabResults`. It is authorized for
+    uncancelled orders as a **billing** DTO — test name, price, status, orderedAt — built from a
+    query that deliberately does not join `LabResults`. It is authorized for
     CLINIC_ADMIN/RECEPTIONIST only; doctors/nurses keep using `/lab/orders`. This is the one lab
     endpoint reception may reach, and it cannot expose clinical data even by accident, because
     the result text is absent from the query, not merely filtered from the response.
   - *Walk-in sales*: reception picks any test from the price list. `GET /lab/tests` already
     allowed RECEPTIONIST, so this needed no backend change — only a picker in the invoice modal.
-  - **Bill-once tracking** (migration 028): `InvoiceItems.LabOrderID` is a nullable FK to
-    `LabOrders`. "Already billed" is defined as *on a non-Void invoice*, so voiding an invoice
-    correctly frees its orders to be re-billed — which is exactly why the index is deliberately
-    **not** unique; the rule lives in `assertLabOrdersBillable()` in the billing service instead.
-    It rejects any line whose lab order isn't genuinely billable for that patient
-    (`LAB_ORDER_NOT_BILLABLE`) and any order listed twice on one invoice (`LAB_ORDER_DUPLICATED`),
-    so a stale reception screen or a double-submit cannot charge a test twice. Walk-in lines
-    carry no `LabOrderID` and are unconstrained — the same test can legitimately be sold again.
+  - **Deliberately no schema change, and therefore no bill-once tracking.** Preventing a test
+    from being billed twice would need an `InvoiceItems.LabOrderID` FK (built first as migration
+    028, then dropped at the user's request to avoid a production schema change). Without that
+    column nothing links an invoice line to a lab order, so the panel is honestly labelled "Lab
+    orders for this patient" rather than "Unbilled", lists every non-cancelled order every time,
+    and shows the order date so reception can judge what still needs charging. Rejected the
+    tempting alternative of inferring "already billed" from invoice-line description text: line
+    descriptions are freely editable and the same test can legitimately be billed twice, so it
+    would be a guess dressed up as a guarantee. If double-billing becomes a real problem in
+    practice, the FK is the fix — the work is recoverable from this commit's parent.
   - Reception deliberately gets **no** Lab nav item: lab billing lives inside the Billing page,
     so the role gains a billing capability, not lab access.
-  - Eight new tests (88 total, up from 80) cover the privacy boundary (a Completed order *with a
-    result recorded* still returns no `resultText`), doctor-blocked-from-billing-view, bill-once,
-    same-order-twice, cross-patient orders, and plain non-lab invoices being unaffected. Verified
-    live end-to-end (13/13 checks) and in the browser via Playwright: the unbilled-orders panel
-    and price-list picker both render and populate line items correctly, with no console errors.
+  - Six new tests (86 total, up from 80) cover the privacy boundary (a Completed order *with a
+    result recorded* still returns no `resultText`), doctor-blocked-from-billing-view, patient
+    scoping, cancelled-order exclusion, and invoicing a lab line. Verified against a database
+    with **no** schema change applied (27 migrations, `LabOrderID` column confirmed absent):
+    86 server tests, 9/9 end-to-end checks, and a Playwright pass showing the lab-orders panel
+    and price-list picker both render and populate line items, with no console errors.

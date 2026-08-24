@@ -172,51 +172,7 @@ describe("Phase 6 — lab workflow", () => {
     expect(res.status).toBe(403);
   });
 
-  it("bills a lab order once, then drops it from the billable list", async () => {
-    const inv = await request(app)
-      .post("/api/v1/billing/invoices")
-      .set("Authorization", `Bearer ${A.receptionToken}`)
-      .send({ patientId: A.patientId, items: [{ description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: orderId }] });
-    expect(inv.status).toBe(201);
-    expect(inv.body.data.items[0].labOrderId.toLowerCase()).toBe(orderId.toLowerCase());
-
-    const after = await request(app)
-      .get(`/api/v1/lab/orders/billable?patientId=${A.patientId}`)
-      .set("Authorization", `Bearer ${A.receptionToken}`);
-    expect(after.body.data.find((o: { labOrderId: string }) => o.labOrderId === orderId)).toBeUndefined();
-  });
-
-  it("rejects billing the same lab order twice (400)", async () => {
-    const res = await request(app)
-      .post("/api/v1/billing/invoices")
-      .set("Authorization", `Bearer ${A.receptionToken}`)
-      .send({ patientId: A.patientId, items: [{ description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: orderId }] });
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe("LAB_ORDER_NOT_BILLABLE");
-  });
-
-  it("rejects the same lab order twice on one invoice (400)", async () => {
-    const order = await request(app)
-      .post("/api/v1/lab/orders")
-      .set("Authorization", `Bearer ${A.doctorToken}`)
-      .send({ patientId: A.patientId, labTestId: testId });
-    const dupId = order.body.data.labOrderId;
-
-    const res = await request(app)
-      .post("/api/v1/billing/invoices")
-      .set("Authorization", `Bearer ${A.receptionToken}`)
-      .send({
-        patientId: A.patientId,
-        items: [
-          { description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: dupId },
-          { description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: dupId },
-        ],
-      });
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe("LAB_ORDER_DUPLICATED");
-  });
-
-  it("rejects billing another patient's lab order (400)", async () => {
+  it("scopes the billable list to the requested patient only", async () => {
     const pool = await getPool();
     const other = await pool
       .request()
@@ -225,31 +181,46 @@ describe("Phase 6 — lab workflow", () => {
       .query<{ PatientID: string }>(
         `INSERT INTO Patients (ClinicID, MRNo, PatientName, Gender, ActualDOB) OUTPUT INSERTED.PatientID VALUES (@clinicId, @mr, 'Other P6', 'Male', '1990-01-01')`,
       );
-    const otherPatientId = other.recordset[0].PatientID;
 
+    const res = await request(app)
+      .get(`/api/v1/lab/orders/billable?patientId=${other.recordset[0].PatientID}`)
+      .set("Authorization", `Bearer ${A.receptionToken}`);
+    expect(res.status).toBe(200);
+    // The other patient has no orders of their own, and must not see this patient's.
+    expect(res.body.data).toHaveLength(0);
+  });
+
+  it("excludes cancelled lab orders from the billable list", async () => {
     const order = await request(app)
       .post("/api/v1/lab/orders")
       .set("Authorization", `Bearer ${A.doctorToken}`)
       .send({ patientId: A.patientId, labTestId: testId });
+    const cancelledId = order.body.data.labOrderId;
 
-    // Order belongs to A.patientId, invoice is for otherPatientId.
+    await request(app)
+      .patch(`/api/v1/lab/orders/${cancelledId}/status`)
+      .set("Authorization", `Bearer ${A.doctorToken}`)
+      .send({ status: "Cancelled" });
+
+    const res = await request(app)
+      .get(`/api/v1/lab/orders/billable?patientId=${A.patientId}`)
+      .set("Authorization", `Bearer ${A.receptionToken}`);
+    expect(res.body.data.find((o: { labOrderId: string }) => o.labOrderId === cancelledId)).toBeUndefined();
+  });
+
+  it("lets reception invoice a lab test as an ordinary line item", async () => {
     const res = await request(app)
       .post("/api/v1/billing/invoices")
       .set("Authorization", `Bearer ${A.receptionToken}`)
       .send({
-        patientId: otherPatientId,
-        items: [{ description: "Lab: CBC", quantity: 1, unitPrice: 800, labOrderId: order.body.data.labOrderId }],
+        patientId: A.patientId,
+        items: [
+          { description: "Consultation fee", quantity: 1, unitPrice: 500 },
+          { description: "Lab: CBC", quantity: 1, unitPrice: 800 },
+        ],
       });
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe("LAB_ORDER_NOT_BILLABLE");
-  });
-
-  it("still lets a plain non-lab invoice through unchanged", async () => {
-    const res = await request(app)
-      .post("/api/v1/billing/invoices")
-      .set("Authorization", `Bearer ${A.receptionToken}`)
-      .send({ patientId: A.patientId, items: [{ description: "Consultation fee", quantity: 1, unitPrice: 500 }] });
     expect(res.status).toBe(201);
-    expect(res.body.data.items[0].labOrderId).toBeNull();
+    expect(res.body.data.total).toBe(1300);
+    expect(res.body.data.items).toHaveLength(2);
   });
 });

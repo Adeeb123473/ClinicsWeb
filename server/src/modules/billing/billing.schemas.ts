@@ -10,8 +10,6 @@ export const createInvoiceSchema = z.object({
         description: z.string().trim().min(1, "Description required").max(255),
         quantity: z.number().int().positive().default(1),
         unitPrice: z.number().min(0),
-        /** Set when this line charges for a doctor-ordered lab test, so it can only be billed once. */
-        labOrderId: z.string().uuid().optional().nullable(),
       }),
     )
     .min(1, "At least one line item is required"),

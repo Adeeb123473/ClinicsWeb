@@ -24,7 +24,6 @@ export interface InvoiceItemRow {
   Quantity: number;
   UnitPrice: number;
   Amount: number;
-  LabOrderID: string | null;
 }
 
 export interface PaymentRow {
@@ -99,7 +98,7 @@ export interface CreateInvoiceInput {
   discount: number;
   taxPercent: number;
   createdBy: string;
-  items: { description: string; quantity: number; unitPrice: number; labOrderId?: string | null }[];
+  items: { description: string; quantity: number; unitPrice: number }[];
 }
 
 export async function insertInvoice(input: CreateInvoiceInput): Promise<string> {
@@ -148,10 +147,9 @@ export async function insertInvoice(input: CreateInvoiceInput): Promise<string> 
         .input("qty", sql.Int, it.quantity)
         .input("unitPrice", sql.Decimal(12, 2), it.unitPrice)
         .input("amount", sql.Decimal(12, 2), it.quantity * it.unitPrice)
-        .input("labOrderId", sql.UniqueIdentifier, it.labOrderId ?? null)
         .query(`
-          INSERT INTO InvoiceItems (InvoiceID, Description, Quantity, UnitPrice, Amount, LabOrderID)
-          VALUES (@invoiceId, @description, @qty, @unitPrice, @amount, @labOrderId)
+          INSERT INTO InvoiceItems (InvoiceID, Description, Quantity, UnitPrice, Amount)
+          VALUES (@invoiceId, @description, @qty, @unitPrice, @amount)
         `);
     }
 
