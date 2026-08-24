@@ -136,7 +136,9 @@ function ConsultationEditor({
       await persist();
       await clinicApi.setStatus(appointment.appointmentId, "Completed").catch(() => undefined);
       toast.success("Consultation completed");
-      printPrescription();
+      // Awaited: printing now fetches and inlines the letterhead image first, so letting this
+      // float would race the navigation that follows and could print before the image resolves.
+      await printPrescription();
       queryClient.invalidateQueries({ queryKey: ["queue"] });
       navigate("/app");
     } catch (err) {
@@ -146,7 +148,7 @@ function ConsultationEditor({
     }
   };
 
-  const printPrescription = () => {
+  const printPrescription = async () => {
     const age = patient.currentAge ? `${patient.currentAge.value} ${patient.currentAge.unit}` : "—";
 
     // Prefer the doctor's own letterhead when one is configured. A DRAFT template still prints
@@ -163,7 +165,7 @@ function ConsultationEditor({
         .filter(Boolean)
         .join("\n");
 
-      const result = printTemplate(
+      const result = await printTemplate(
         letterhead,
         {
           patientName: patient.PatientName,

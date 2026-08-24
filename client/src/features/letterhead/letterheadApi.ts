@@ -82,3 +82,28 @@ export async function fetchImageObjectUrl(url: string): Promise<string> {
   const res = await apiClient.get(url.replace(/^\/api\/v1/, ""), { responseType: "blob" });
   return URL.createObjectURL(res.data as Blob);
 }
+
+/**
+ * Fetches a stored letterhead image and inlines it as a base64 data URL.
+ *
+ * Required for printing. The print window is a separate document that cannot use the stored
+ * API path directly: it would resolve against the app's own origin rather than the API's, and
+ * even on the right origin an <img> tag sends no Authorization header, so the authenticated
+ * endpoint returns 401 and the browser renders a broken-image placeholder. Inlining the bytes
+ * sidesteps both problems and means the print window makes no network request at all.
+ */
+export async function fetchImageDataUrl(url: string): Promise<string> {
+  const res = await apiClient.get(url.replace(/^\/api\/v1/, ""), { responseType: "blob" });
+  const blob = res.data as Blob;
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read the letterhead image"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** True for a stored API path, as opposed to an already-inlined data:/blob: URL. */
+export function needsInlining(url: string | null | undefined): boolean {
+  return typeof url === "string" && url.startsWith("/");
+}

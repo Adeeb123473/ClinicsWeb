@@ -168,8 +168,8 @@ export function LetterheadSetupModal({
     }
   };
 
-  const testPrint = () => {
-    const result = printTemplate(
+  const testPrint = async () => {
+    const result = await printTemplate(
       { mode, globalOffsetMm: offset, status: "DRAFT", fields, letterheadImageUrl: dewarpedUrl },
       sampleValues(),
       `Letterhead test — ${doctorName}`,

@@ -81,9 +81,27 @@ export function printA4Html(title: string, bodyHtml: string, extraCss = ""): boo
 </html>`);
   win.document.close();
   win.focus();
-  // Let the new document lay out (and any background image decode) before printing.
-  setTimeout(() => {
-    win.print();
-  }, 400);
+
+  // Wait for images to finish decoding before printing. A fixed delay is not enough: a
+  // full-page letterhead is around a megabyte, and printing before it decodes yields a page
+  // with the fields but no letterhead. Falls back to a timeout so a stuck image cannot leave
+  // the user staring at a print window that never opens the dialog.
+  const images = Array.from(win.document.images);
+  const decoded = Promise.all(
+    images.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            img.addEventListener("load", () => resolve(), { once: true });
+            img.addEventListener("error", () => resolve(), { once: true });
+          }),
+    ),
+  );
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
+
+  void Promise.race([decoded, timeout]).then(() => {
+    // A short beat after decode so layout settles before the print dialog snapshots the page.
+    setTimeout(() => win.print(), 150);
+  });
   return true;
 }

@@ -10,6 +10,7 @@
  */
 import { absMm, escapeHtml, printA4Html } from "../../utils/printLetterhead";
 import { composeFields, offsetPosition, paginateBody, type FieldValues, type LetterheadField } from "./fields";
+import { fetchImageDataUrl, needsInlining } from "./letterheadApi";
 import { A4 } from "./units";
 
 export interface LetterheadTemplate {
@@ -113,16 +114,33 @@ export interface PrintResult {
 }
 
 /**
- * Prints the template. Returns a result rather than throwing so the caller can surface a popup
- * blocker as a visible message — otherwise printing silently does nothing, which is impossible
- * for a user to diagnose.
+ * Prints the template.
+ *
+ * In FULL mode the letterhead image is inlined as a data URL first: the stored value is an
+ * authenticated API path, which a print window cannot load (wrong origin, and an <img> sends no
+ * Authorization header) and which silently renders as a broken-image placeholder. Resolving it
+ * here rather than in each caller means no print path can forget to do it.
+ *
+ * Returns a result rather than throwing so the caller can surface a blocked popup as a visible
+ * message — otherwise printing silently does nothing, which a user cannot diagnose.
  */
-export function printTemplate(
+export async function printTemplate(
   template: LetterheadTemplate,
   values: FieldValues,
   title = "Prescription",
-): PrintResult {
-  const pages = renderTemplatePages(template, values);
+): Promise<PrintResult> {
+  let resolved = template;
+  if (template.mode === "FULL" && needsInlining(template.letterheadImageUrl)) {
+    try {
+      const dataUrl = await fetchImageDataUrl(template.letterheadImageUrl as string);
+      resolved = { ...template, letterheadImageUrl: dataUrl };
+    } catch {
+      // Better to print the fields on plain paper than to print nothing at all.
+      resolved = { ...template, letterheadImageUrl: null };
+    }
+  }
+
+  const pages = renderTemplatePages(resolved, values);
   const html = pages
     .map((page, i) =>
       i === 0

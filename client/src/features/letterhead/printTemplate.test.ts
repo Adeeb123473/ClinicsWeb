@@ -76,6 +76,32 @@ describe("OVERLAY mode", () => {
   });
 });
 
+describe("FULL mode image source", () => {
+  // Regression: the stored letterheadImageUrl is an authenticated API path. A print window
+  // cannot load it — it resolves against the app's origin rather than the API's, and an <img>
+  // sends no Authorization header — so it rendered as a broken-image placeholder and the
+  // prescription printed with the fields but no letterhead. printTemplate must inline it.
+  it("recognises a stored API path as needing inlining", async () => {
+    const { needsInlining } = await import("./letterheadApi");
+    expect(needsInlining("/api/v1/doctors/abc/letterhead/image/dewarped")).toBe(true);
+    // Already-usable sources must be left alone.
+    expect(needsInlining("data:image/jpeg;base64,AAAA")).toBe(false);
+    expect(needsInlining("blob:http://localhost/abc")).toBe(false);
+    expect(needsInlining(null)).toBe(false);
+    expect(needsInlining(undefined)).toBe(false);
+  });
+
+  it("embeds an inlined data URL directly in the printed page", () => {
+    const html = renderTemplatePages(
+      base({ mode: "FULL", letterheadImageUrl: "data:image/jpeg;base64,ABCD", fields: [f({ key: "patientName" })] }),
+      { patientName: "Muhammad Ahmed" },
+    ).join("");
+    expect(html).toContain("data:image/jpeg;base64,ABCD");
+    // No network request should be needed from the print window.
+    expect(html).not.toContain("/api/v1/");
+  });
+});
+
 describe("FULL mode", () => {
   it("renders the letterhead image as a full-page background", () => {
     const html = renderTemplatePages(base({ mode: "FULL", fields: [f({ key: "patientName" })] }), {
