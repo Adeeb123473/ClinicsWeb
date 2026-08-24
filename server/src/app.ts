@@ -22,6 +22,7 @@ import prescriptionsRoutes from "./modules/prescriptions/prescriptions.routes.js
 import medicinesRoutes from "./modules/medicines/medicines.module.js";
 import historyRoutes from "./modules/history/history.routes.js";
 import labRoutes from "./modules/lab/lab.routes.js";
+import letterheadRoutes from "./modules/letterheads/letterheads.routes.js";
 import platformAdminRoutes from "./modules/platform/platform.routes.js";
 
 export function createApp() {
@@ -43,6 +44,14 @@ export function createApp() {
       },
       credentials: true,
     }),
+  );
+  // Letterhead images are megabytes, not kilobytes. This must be registered BEFORE the global
+  // parser: express.json() rejects an oversized body where it is mounted, so a later
+  // route-specific limit would never be reached. Everything else keeps the 100kb default.
+  const LETTERHEAD_IMAGE_PATH = /^\/api\/v1\/doctors\/[^/]+\/letterhead\/image$/;
+  const letterheadImageParser = express.json({ limit: "12mb" });
+  app.use((req, res, next) =>
+    LETTERHEAD_IMAGE_PATH.test(req.path) ? letterheadImageParser(req, res, next) : next(),
   );
   app.use(express.json());
   app.use(cookieParser());
@@ -69,6 +78,7 @@ export function createApp() {
   app.use("/api/v1/reports", reportsRoutes);
   app.use("/api/v1/patients", historyRoutes);
   app.use("/api/v1/patients", patientsRoutes);
+  app.use("/api/v1/doctors", letterheadRoutes);
   app.use("/api/v1/doctors", doctorsRoutes);
   app.use("/api/v1/appointments", appointmentsRoutes);
   app.use("/api/v1/billing", billingRoutes);
